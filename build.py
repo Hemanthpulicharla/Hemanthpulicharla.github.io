@@ -10,6 +10,17 @@ def get_all_pages():
     """Manually collect all public URLs."""
     pages = []
     with app.app_context():
+        # --- DEBUGGING START ---
+        print("\n--- Checking Database Posts ---")
+        all_posts = Post.query.all()
+        if not all_posts:
+            print("No posts found in the database.")
+        else:
+            for p in all_posts:
+                print(f"  - Found Post: '{p.title}' (Is Draft: {p.is_draft})")
+        print("-----------------------------\n")
+        # --- DEBUGGING END ---
+
         # Static pages
         pages.append('/')
         pages.append('/about')
