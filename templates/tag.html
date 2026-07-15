@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Posts tagged "{{ tag_name }}" | K.I.S.S{% endblock %}
+
+{% block content %}
+<section class="container">
+    <h1>Posts tagged "{{ tag_name }}"</h1>
+    
+    {% for post in posts %}
+    <article class="blog-content{% if post.is_draft %} draft{% endif %}">
+        <div class="row">
+            <div class="col text-left date">
+                <i class="fas fa-calendar"></i>{{ post.date_created.strftime('%B %d, %Y') }}
+            </div>
+            <div class="col text-right tags hide-xs">
+                {% for tag in post.get_tags_list() %}
+                    <a href="{{ url_for('posts_by_tag', tag_name=tag) }}" class="tag">{{ tag }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        <h1 class="title">
+            <a href="{{ url_for('post_detail', slug=post.slug) }}">{{ post.title }}</a>
+        </h1>
+        <div class="content">
+            {{ post.summary or post.content[:300] + '...' if post.content|length > 300 else post.content }}
+            {% if post.summary or post.content|length > 300 %}
+            <a class="read-more" href="{{ url_for('post_detail', slug=post.slug) }}">
+                Read more
+            </a>
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+</section>
+{% endblock %}

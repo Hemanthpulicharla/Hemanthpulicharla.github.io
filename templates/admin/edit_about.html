@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Edit About Page | Admin{% endblock %}
+
+{% block content %}
+<section class="container">
+    <h1>Edit About Page</h1>
+    
+    <form method="POST">
+        <label for="content">Content (Markdown)</label>
+        <textarea id="content" name="content" rows="20" required>{{ about.content }}</textarea>
+        
+        <div class="row">
+            <div class="col">
+                <button type="submit" class="button primary">Save About Page</button>
+                <a href="{{ url_for('about') }}" class="button outline">Preview</a>
+                <a href="{{ url_for('admin') }}" class="button outline">Cancel</a>
+            </div>
+        </div>
+    </form>
+</section>
+{% endblock %}

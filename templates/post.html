@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} | K.I.S.S{% endblock %}
+
+{% block content %}
+<section id="blog-article">
+    <article class="blog-content container{% if post.is_draft %} draft{% endif %}">
+        <div class="post-meta">
+            <div class="date">
+                <i class="fas fa-calendar"></i>{{ post.date_created.strftime('%B %d, %Y') }}
+            </div>
+            {% if post.updated_at %}
+            <div class="date">
+                <i class="fas fa-edit"></i>Last Updated: {{ post.updated_at.strftime('%B %d, %Y at %H:%M') }}
+            </div>
+            {% endif %}
+            {% if post.get_tags_list() %}
+            <div class="tags-container">
+                {% for tag in post.get_tags_list() %}
+                    <a href="{{ url_for('posts_by_tag', tag_name=tag) }}" class="tag">{{ tag }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <h1 class="title">{{ post.title }}</h1>
+        <div class="content">
+            {{ post.get_html_content() | safe }}
+        </div>
+        
+        {% if post.get_tags_list() %}
+        <div class="tags hide-sm hide-md hide-lg">
+            {% for tag in post.get_tags_list() %}
+                <a href="{{ url_for('posts_by_tag', tag_name=tag) }}" class="tag">{{ tag }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <hr>
+        <div class="comment-section">
+            <h3>Comments</h3>
+            {% for comment in post.comments %}
+                <div class="comment">
+                    <p><strong>{{ comment.author }}</strong> - <em>{{ comment.created_at.strftime('%Y-%m-%d') }}</em></p>
+                    <p>{{ comment.content }}</p>
+                </div>
+            {% endfor %}
+            <!-- 
+            <form method="post" action="{{ url_for('add_comment', post_id=post.id) }}" class="comment-form">
+                <div class="form-group">
+                    <label for="author">Name</label>
+                    <input type="text" name="author" id="author" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="content">Comment</label>
+                    <textarea name="content" id="content" class="form-control" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
+            -->
+            <div class="comment-form-placeholder">
+                <p>Comments are disabled on the static version of this site.</p>
+                <p>Consider integrating a third-party commenting system like <a href="https://giscus.app/" target="_blank" rel="noopener noreferrer">Giscus</a> or <a href="https://disqus.com/" target="_blank" rel="noopener noreferrer">Disqus</a>.</p>
+            </div>
+        </div>
+    </article>
+</section>
+{% endblock %}
