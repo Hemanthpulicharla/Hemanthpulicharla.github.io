@@ -1,10 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Hello World</title>
-</head>
-<body>
-    <h1>Hello World</h1>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+<section class="container" id="blogroll">
+    {% for post in posts.items %}
+    <article class="blog-content{% if post.is_draft %} draft{% endif %}">
+        <div class="post-meta">
+            <div class="date">
+                <i class="fas fa-calendar"></i>{{ post.date_created.strftime('%B %d, %Y') }}
+            </div>
+            {% if post.get_tags_list() %}
+            <div class="tags-container">
+                {% for tag in post.get_tags_list() %}
+                    <a href="{{ url_for('posts_by_tag', tag_name=tag) }}" class="tag">{{ tag }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <h1 class="title">
+            <a href="{{ url_for('post_detail', slug=post.slug) }}">{{ post.title }}</a>
+        </h1>
+        <div class="content">
+            {% if post.summary %}
+                {{ post.summary | markdown | safe }}
+                <a class="read-more" href="{{ url_for('post_detail', slug=post.slug) }}">Read more</a>
+            {% elif post.content|length > 500 %}
+                {{ post.content[:500] | markdown | safe }}...
+                <a class="read-more" href="{{ url_for('post_detail', slug=post.slug) }}">Read more</a>
+            {% else %}
+                {{ post.content | markdown | safe }}
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+</section>
+
+<!-- Pagination -->
+{% if posts.pages > 1 %}
+<section class="pager">
+    <div class="container">
+        {% if posts.has_prev %}
+            <a href="{{ url_for('index', page=posts.prev_num) }}" class="button">« Previous</a>
+        {% endif %}
+        
+        <!-- Page numbers -->
+        {% for page_num in posts.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+            {% if page_num %}
+                {% if page_num != posts.page %}
+                    <a href="{{ url_for('index', page=page_num) }}" class="button">{{ page_num }}</a>
+                {% else %}
+                    <span class="button current">{{ page_num }}</span>
+                {% endif %}
+            {% else %}
+                <span class="button">…</span>
+            {% endif %}
+        {% endfor %}
+        
+        {% if posts.has_next %}
+            <a href="{{ url_for('index', page=posts.next_num) }}" class="button">Next »</a>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}
