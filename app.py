@@ -29,7 +29,7 @@ def login_required(f):
 
 @app.template_filter('markdown')
 def markdown_filter(text):
-    return markdown.markdown(text, extensions=['codehilite', 'fenced_code'])
+    return markdown.markdown(text, extensions=['codehilite', 'fenced_code','tables'])
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -48,7 +48,7 @@ class Post(db.Model):
         return []
     
     def get_html_content(self):
-        return markdown.markdown(self.content, extensions=['codehilite', 'fenced_code'])
+        return markdown.markdown(self.content, extensions=['codehilite', 'fenced_code','tables'])
 
 class About(db.Model):
     id = db.Column(db.Integer, primary_key=True)
