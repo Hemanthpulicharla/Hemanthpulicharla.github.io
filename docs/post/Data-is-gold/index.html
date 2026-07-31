@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title> Autopsy of Kaggle-winning algorithm | K.I.S.S</title>
+    
+    <!-- CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/normalize.css">
+    <link rel="stylesheet" href="/static/css/chota.min.css">
+    <link rel="stylesheet" href="/static/css/syntax.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="canonical" href="http://localhost/post/Data-is-gold">
+    
+    <!-- JavaScript -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/contrib/auto-render.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.slim.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.4.0/mermaid.min.js"></script>
+    <script defer src="/static/js/app.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <section class="section">
+        <div class="container">
+            <nav id="topnav" class="nav">
+                <div id="nav-name" class="nav-left">
+                    <a id="nav-anchor" href="/">
+                        <div class="site-title">K.I.S.S</div>
+                        <div class="site-subtitle">Keep It Simple & Stupid</div>
+                    </a>
+                </div>
+                <div class="nav-right">
+                    <a class="nav-link" aria-label="about" href="/about">
+                        <i class="fas fa-user"></i>
+                    </a>
+                    <a class="nav-link" aria-label="rss" href="/rss.xml" target="_blank" rel="noopener">
+                        <i class="fas fa-rss"></i>
+                    </a>
+                    <a class="nav-link" aria-label="github" href="https://github.com/Hemanthpulicharla" target="_blank" rel="noopener">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a class="nav-link" aria-label="Visit my site" href="https://hemanthpulicharla.pythonanywhere.com/" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-globe"></i>
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    
+<section id="blog-article">
+    <article class="blog-content container">
+        <div class="post-meta">
+            <div class="date">
+                <i class="fas fa-calendar"></i>July 30, 2026
+            </div>
+            
+            <div class="date">
+                <i class="fas fa-edit"></i>Last Updated: July 31, 2026 at 04:48
+            </div>
+            
+            
+        </div>
+        <h1 class="title"> Autopsy of Kaggle-winning algorithm</h1>
+        <div class="content">
+            <h4>Raison d'etre</h4>
+<p>I'd just come off an internship where I watched a fellow intern demo something genuinely impressive. He'd built a stack of about fifteen, maybe twenty time-series models and wrapped an agent around it. Feed it a new problem and a dataset, and it would shortlist which models to use based on the profiling of the problem. A matchmaking service between problems and algorithms. It seems quite impressive, but one thing started bothering me. Let's say that stack is working on predicting the volatility of a stock in the market; as such, it will give something that can work pretty nicely on the historical data and had earned its spot the same way. So that historical data is a static snapshot of the world, but the world these models are built for is not static; rather, it is very dynamic and evolving. </p>
+<p>This question reminded me of the thing Alexander Wang spoke about that AI stands on three pillars: math, compute, and data. The first instinct of industry is to worship the first two. Bigger and more sophisticated architectures, bigger GPUs, and quantum computing, etc. But I have noticed, or did the analogy something of the sort, as in... math doesn't suddenly wake up and decide to be different or refuse to work on the problem they are designed to. Computers don't rebel against us because it is in the nature of the technology to be reliable and diligent. But data is the only pillar that's alive, dynamic, and evolves. It can decay, it can drift, and in some fields like fraud, it fights back, because on the other side of your dataset is a human whose job is to make your data wrong or make your model go wrong.</p>
+<p>Around this same time I saw a clip from the Lok Sabha (parliament monsoon session) of Rahul Gandhi arguing that data is the decisive resource of this century, and that India is letting its data flow to American platforms, fueling someone else's AI supremacy and hegemony. Politicians usually get technology wrong. But the core instinct is that data isn't exhausted; it's territory, and an asset may be right in here, and the same truth holds at the scale of a single model.</p>
+<hr />
+<h4>The Approach:</h4>
+<p>I was having this question: what if I took a Kaggle-winning fraud detection algorithm, the topper of the leaderboard and industrially very acceptable, and I gave it real fraudsters? Six months of simulated production... Fraud data adapting, tactics rotating, distributions sliding. And it died slowly and then all at once after a point in time.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">xgboost</span> <span class="kn">import</span> <span class="n">XGBClassifier</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">recall_score</span><span class="p">,</span> <span class="n">precision_score</span><span class="p">,</span> <span class="n">roc_auc_score</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+<span class="kn">from</span> <span class="nn">imblearn.over_sampling</span> <span class="kn">import</span> <span class="n">SMOTE</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;creditcard.csv&#39;</span><span class="p">)</span>
+
+<span class="n">df_sorted</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;Time&quot;</span><span class="p">)</span>
+<span class="n">train_df</span> <span class="o">=</span> <span class="n">df_sorted</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="nb">int</span><span class="p">(</span><span class="mf">0.7</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))]</span>
+<span class="n">future_df</span> <span class="o">=</span> <span class="n">df_sorted</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="mf">0.7</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)):]</span>
+</code></pre></div>
+
+<h5><a href="https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud/data">Dataset source</a></h5>
+<h5>Why XGboost algorithm:</h5>
+<ul>
+<li>Data is imbalanced (severely), and XGBoost has scale_pos_weight built in, which reweights the gradient/hessian for the minority class directly inside the loss function rather than needing a separate resampling step to work at all, and we are using SMOTE (double bias towards positive classes)</li>
+<li>Tree ensembles can capture the nonlinearity and interaction-heavy boundaries without feature scaling, which suits our PCA components V1-V28 </li>
+<li>SHAP compatibility + Faster &amp; cheaper</li>
+</ul>
+<p>The actual winning solution was an ensemble of XGBoost, CatBoost, and LightGBM with extensive feature engineering. I isolated the core component XGBoost, the backbone of nearly every top submission, to test whether the algorithmic approach itself, not just one team's specific pipeline, holds up against evolving fraud.</p>
+<div class="codehilite"><pre><span></span><code>X_train,y_train = train_df.drop([&#39;Class&#39;,&#39;Time&#39;], axis = 1), train_df[&#39;Class&#39;]
+
+X_train_resampled, y_train_resampled = SMOTE().fit_resample(X_train,y_train)
+
+
+model = XGBClassifier(
+    n_estimators = 100,
+    max_depth = 6,
+    learning_rate = 0.1,
+    scale_pos_weight=len(y_train[y_train==0])/len(y_train[y_train==1])
+)
+
+model.fit(X_train_resampled,y_train_resampled)
+</code></pre></div>
+
+<h5>Simulate the fraudster's evolving tactics :</h5>
+<p>Simulate what real fraudsters actually do when a detector starts catching them... they don't stay still. 
+1. They learn where the thresholds are and drift their behavior just under them.
+2. They learn when detection is weakest (which we modeled here as peak hours) and shift their timing to blend into the crowd
+3. They ( a fraction of them ) abandon the old playbook entirely and invent a new one, because the old one stopped working, which we simulate as PCA directions being inverted (* -1 ) in the dimensional space for 20% of our data.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">def</span><span class="w"> </span><span class="n">sf</span><span class="p">(</span><span class="k">of</span><span class="p">,</span><span class="w"> </span><span class="n">n_gen</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">decay</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span><span class="w"> </span><span class="n">seed</span><span class="o">=</span><span class="k">None</span><span class="p">)</span><span class="err">:</span>
+<span class="w">    </span><span class="n">rng</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+<span class="w">    </span><span class="n">evolved_fraud</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">of</span><span class="p">.</span><span class="n">copy</span><span class="p">()</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">col</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">evolved_fraud</span><span class="p">.</span><span class="nl">columns</span><span class="p">:</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">col</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="o">[</span><span class="n">&#39;Class&#39;, &#39;Time&#39;</span><span class="o">]</span><span class="err">:</span>
+<span class="w">            </span><span class="n">legit_mean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">train_df</span><span class="p">.</span><span class="n">loc</span><span class="o">[</span><span class="n">train_df[&#39;Class&#39;</span><span class="o">]==</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">col</span><span class="err">]</span><span class="p">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="w">            </span><span class="n">legit_std</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">train_df</span><span class="p">.</span><span class="n">loc</span><span class="o">[</span><span class="n">train_df[&#39;Class&#39;</span><span class="o">]==</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">col</span><span class="err">]</span><span class="p">.</span><span class="n">std</span><span class="p">()</span>
+<span class="w">            </span><span class="n">fraud_mean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">evolved_fraud</span><span class="o">[</span><span class="n">col</span><span class="o">]</span><span class="p">.</span><span class="n">mean</span><span class="p">()</span>
+
+<span class="w">            </span><span class="n">remaining_frac</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">decay</span><span class="p">)</span><span class="w"> </span><span class="o">**</span><span class="w"> </span><span class="n">n_gen</span>
+<span class="w">            </span><span class="n">target_mean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">legit_mean</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="n">legit_mean</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">fraud_mean</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">remaining_frac</span>
+<span class="w">            </span><span class="n">shift</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">target_mean</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">fraud_mean</span>
+
+<span class="w">            </span><span class="n">noise</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.05</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">legit_std</span><span class="p">,</span><span class="w"> </span><span class="nf">len</span><span class="p">(</span><span class="n">evolved_fraud</span><span class="p">))</span>
+<span class="w">            </span><span class="n">evolved_fraud</span><span class="o">[</span><span class="n">col</span><span class="o">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">shift</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">noise</span>
+
+<span class="w">    </span><span class="n">legit_hour</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">train_df</span><span class="p">.</span><span class="n">loc</span><span class="o">[</span><span class="n">train_df[&#39;Class&#39;</span><span class="o">]==</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;Time&#39;</span><span class="err">]</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">24</span><span class="o">*</span><span class="mi">3600</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">3600</span>
+<span class="w">    </span><span class="n">peak_hour</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">legit_hour</span><span class="p">.</span><span class="n">mode</span><span class="p">()</span><span class="o">[</span><span class="n">0</span><span class="o">]</span>
+<span class="w">    </span><span class="n">current_hour</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">evolved_fraud</span><span class="o">[</span><span class="n">&#39;Time&#39;</span><span class="o">]</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="p">(</span><span class="mi">24</span><span class="o">*</span><span class="mi">3600</span><span class="p">))</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">3600</span>
+<span class="w">    </span><span class="n">hour_shift</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">peak_hour</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">current_hour</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">decay</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">n_gen</span>
+<span class="w">    </span><span class="n">evolved_fraud</span><span class="o">[</span><span class="n">&#39;Time&#39;</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">evolved_fraud</span><span class="o">[</span><span class="n">&#39;Time&#39;</span><span class="o">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">hour_shift</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">3600</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">n_gen</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">2</span><span class="err">:</span>
+<span class="w">        </span><span class="n">new_pattern_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">.</span><span class="n">random</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">evolved_fraud</span><span class="p">))</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mf">0.2</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">col</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">evolved_fraud</span><span class="p">.</span><span class="nl">columns</span><span class="p">:</span>
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="n">col</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="o">[</span><span class="n">&#39;Class&#39;, &#39;Time&#39;, &#39;Amount&#39;</span><span class="o">]</span><span class="err">:</span>
+<span class="w">                </span><span class="n">evolved_fraud</span><span class="p">.</span><span class="n">loc</span><span class="o">[</span><span class="n">new_pattern_mask, col</span><span class="o">]</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span><span class="w"> </span><span class="n">#dimension</span><span class="w"> </span><span class="n">invrsion</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">evolved_fraud</span>
+</code></pre></div>
+
+<h5>Measuring the Model decay</h5>
+<div class="codehilite"><pre><span></span><code>def model_decay(model, test_data, gens=12,decay=0.1,seed=None):
+    results = []
+
+    for gen in range(gens):
+        fraud_data = test_data[test_data[&#39;Class&#39;]==1]
+        evolved_fraud = sf(fraud_data, n_gen=gen,decay=decay,seed=seed)
+
+        legit_data = test_data[test_data[&#39;Class&#39;]==0]
+        concat_test_data = pd.concat([legit_data, evolved_fraud])
+
+        X_test = concat_test_data.drop([&#39;Class&#39;, &#39;Time&#39;], axis=1)
+        y_test = concat_test_data[&#39;Class&#39;]
+
+        y_pred = model.predict(X_test)
+        y_prob = model.predict_proba(X_test)[:, 1]
+
+
+        results.append({
+            &#39;generation&#39;: gen,
+            &#39;months&#39;: gen,
+            &#39;recall&#39;: recall_score(y_test, y_pred),  # TPR
+            &#39;precision&#39;: precision_score(y_test, y_pred),
+            &#39;auc&#39;: roc_auc_score(y_test, y_prob),
+            &#39;fraud_caught&#39;: (y_pred[y_test==1]==1).sum(),
+            &#39;fraud_missed&#39;: (y_pred[y_test==1]==0).sum()
+        })
+
+    return pd.DataFrame(results)
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code><span class="n">def</span><span class="w"> </span><span class="n">calculate_half_life</span><span class="p">(</span><span class="n">decay_df</span><span class="p">,</span><span class="w"> </span><span class="n">metric</span><span class="o">=</span><span class="s1">&#39;recall&#39;</span><span class="p">)</span><span class="err">:</span>
+<span class="w">    </span><span class="n">initial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decay_df</span><span class="o">[</span><span class="n">metric</span><span class="o">]</span><span class="p">.</span><span class="n">iloc</span><span class="o">[</span><span class="n">0</span><span class="o">]</span>
+<span class="w">    </span><span class="n">baseline</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.5</span><span class="w"> </span>
+
+<span class="w">    </span><span class="n">halfway</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">initial</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">baseline</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">2</span>
+
+<span class="w">    </span><span class="n">crossed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decay_df</span><span class="o">[</span><span class="n">decay_df[metric</span><span class="o">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">halfway</span><span class="err">]</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="nf">len</span><span class="p">(</span><span class="n">crossed</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="err">:</span>
+<span class="w">        </span><span class="n">half_life</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crossed</span><span class="o">[</span><span class="n">&#39;months&#39;</span><span class="o">]</span><span class="p">.</span><span class="n">iloc</span><span class="o">[</span><span class="n">0</span><span class="o">]</span>
+<span class="w">    </span><span class="k">else</span><span class="err">:</span>
+<span class="w">        </span><span class="n">half_life</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span><span class="w"> </span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">half_life</span><span class="p">,</span><span class="w"> </span><span class="n">initial</span><span class="p">,</span><span class="w"> </span><span class="n">halfway</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>decay_df = model_decay(model, future_df, gens=12, decay=0.1, seed=42)
+decay_df
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">generation</th>
+<th style="text-align: left;">months</th>
+<th style="text-align: left;">recall</th>
+<th style="text-align: left;">precision</th>
+<th style="text-align: left;">auc</th>
+<th style="text-align: left;">fraud_caught</th>
+<th style="text-align: left;">fraud_missed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">0</td>
+<td style="text-align: left;">0</td>
+<td style="text-align: left;">0.851852</td>
+<td style="text-align: left;">0.082659</td>
+<td style="text-align: left;">0.932436</td>
+<td style="text-align: left;">92</td>
+<td style="text-align: left;">16</td>
+</tr>
+<tr>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">0.787037</td>
+<td style="text-align: left;">0.076854</td>
+<td style="text-align: left;">0.896834</td>
+<td style="text-align: left;">85</td>
+<td style="text-align: left;">23</td>
+</tr>
+<tr>
+<td style="text-align: left;">2</td>
+<td style="text-align: left;">2</td>
+<td style="text-align: left;">0.768519</td>
+<td style="text-align: left;">0.075181</td>
+<td style="text-align: left;">0.890616</td>
+<td style="text-align: left;">83</td>
+<td style="text-align: left;">25</td>
+</tr>
+<tr>
+<td style="text-align: left;">3</td>
+<td style="text-align: left;">3</td>
+<td style="text-align: left;">0.574074</td>
+<td style="text-align: left;">0.057248</td>
+<td style="text-align: left;">0.761024</td>
+<td style="text-align: left;">62</td>
+<td style="text-align: left;">46</td>
+</tr>
+<tr>
+<td style="text-align: left;">4</td>
+<td style="text-align: left;">4</td>
+<td style="text-align: left;">0.583333</td>
+<td style="text-align: left;">0.058118</td>
+<td style="text-align: left;">0.757699</td>
+<td style="text-align: left;">63</td>
+<td style="text-align: left;">45</td>
+</tr>
+<tr>
+<td style="text-align: left;">5</td>
+<td style="text-align: left;">5</td>
+<td style="text-align: left;">0.555556</td>
+<td style="text-align: left;">0.055504</td>
+<td style="text-align: left;">0.748134</td>
+<td style="text-align: left;">60</td>
+<td style="text-align: left;">48</td>
+</tr>
+<tr>
+<td style="text-align: left;">6</td>
+<td style="text-align: left;">6</td>
+<td style="text-align: left;">0.555556</td>
+<td style="text-align: left;">0.055504</td>
+<td style="text-align: left;">0.748253</td>
+<td style="text-align: left;">60</td>
+<td style="text-align: left;">48</td>
+</tr>
+<tr>
+<td style="text-align: left;">7</td>
+<td style="text-align: left;">7</td>
+<td style="text-align: left;">0.527778</td>
+<td style="text-align: left;">0.052876</td>
+<td style="text-align: left;">0.742790</td>
+<td style="text-align: left;">57</td>
+<td style="text-align: left;">51</td>
+</tr>
+<tr>
+<td style="text-align: left;">8</td>
+<td style="text-align: left;">8</td>
+<td style="text-align: left;">0.518519</td>
+<td style="text-align: left;">0.051996</td>
+<td style="text-align: left;">0.735965</td>
+<td style="text-align: left;">56</td>
+<td style="text-align: left;">52</td>
+</tr>
+<tr>
+<td style="text-align: left;">9</td>
+<td style="text-align: left;">9</td>
+<td style="text-align: left;">0.490741</td>
+<td style="text-align: left;">0.049348</td>
+<td style="text-align: left;">0.736120</td>
+<td style="text-align: left;">53</td>
+<td style="text-align: left;">55</td>
+</tr>
+<tr>
+<td style="text-align: left;">10</td>
+<td style="text-align: left;">10</td>
+<td style="text-align: left;">0.472222</td>
+<td style="text-align: left;">0.047575</td>
+<td style="text-align: left;">0.726313</td>
+<td style="text-align: left;">51</td>
+<td style="text-align: left;">57</td>
+</tr>
+<tr>
+<td style="text-align: left;">11</td>
+<td style="text-align: left;">11</td>
+<td style="text-align: left;">0.444444</td>
+<td style="text-align: left;">0.044902</td>
+<td style="text-align: left;">0.725342</td>
+<td style="text-align: left;">48</td>
+<td style="text-align: left;">60</td>
+</tr>
+</tbody>
+</table>
+<h5>Some visualisation</h5>
+<div class="codehilite"><pre><span></span><code>fig, ax = plt.subplots(figsize=(10, 6))
+
+ax.plot(decay_df[&#39;generation&#39;], decay_df[&#39;recall&#39;], marker=&#39;o&#39;, linewidth=2, 
+        color=&#39;#e63946&#39;, label=&#39;Recall (fraud caught rate)&#39;)
+ax.plot(decay_df[&#39;generation&#39;], decay_df[&#39;precision&#39;], marker=&#39;s&#39;, linewidth=2, 
+        color=&#39;#457b9d&#39;, label=&#39;Precision&#39;)
+ax.plot(decay_df[&#39;generation&#39;], decay_df[&#39;auc&#39;], marker=&#39;^&#39;, linewidth=2, 
+        color=&#39;#2a9d8f&#39;, label=&#39;ROC-AUC&#39;)
+
+ax.axvspan(2.5, decay_df[&#39;generation&#39;].max(), alpha=0.08, color=&#39;red&#39;, 
+           label=&#39;New fraud patterns emerge&#39;)
+
+ax.axhline(0.5, color=&#39;gray&#39;, linestyle=&#39;--&#39;, linewidth=1, alpha=0.6)
+ax.text(0.1, 0.52, &#39;Random Coin-flip detection (trivial case)&#39;, fontsize=9, color=&#39;gray&#39;)
+
+ax.set_xlabel(&#39;Generation (~1 month each)&#39;, fontsize=11)
+ax.set_ylabel(&#39;Score&#39;, fontsize=11)
+ax.set_title(&#39;Model Performance Decay as Fraud Patterns Evolve&#39;, fontsize=13, fontweight=&#39;bold&#39;)
+ax.set_ylim(0, 1.05)
+ax.legend(loc=&#39;lower left&#39;, frameon=True)
+ax.grid(alpha=0.3)
+plt.tight_layout()
+plt.show()
+</code></pre></div>
+
+<p><img alt="Something" src="/static/images/Fraud_curve.png" /></p>
+<h3>Conclusion:</h3>
+<p>The algorithm that is so elegant died just like that.... ALAS!!!!</p>
+<p>So the cause of death is not bad math, not computing. The cause of death was human ingenuity, pointed the other way. Fraudsters with no clusters and no credentials out-created a model built on all three pillars.</p>
+<p>And the only thing that could have saved it? The same thing. A human was watching, doubting, asking; no agent was given. The model didn't lose to a better model. It lost to people. Everything that kills models, and everything that saves them, is still us.</p>
+<p>So it makes me question whether AI can ever surpass human intelligence if it hasn't seen our ingenuity yet and the tectonic shifts in human ingenuity with each generation passing can ever produce true AGI that can operate on its own without us or even the gloomy picture of against us?</p>
+        </div>
+        
+        
+        <hr>
+        <div class="comment-section">
+            <h3>Comments</h3>
+            
+            <!-- 
+            <form method="post" action="/post/2/comment" class="comment-form">
+                <div class="form-group">
+                    <label for="author">Name</label>
+                    <input type="text" name="author" id="author" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="content">Comment</label>
+                    <textarea name="content" id="content" class="form-control" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
+            -->
+        </div>
+    </article>
+</section>
+
+
+    <!-- Footer -->
+    <footer class="copy-right">
+        <div class="container">
+            <div class="is-full-width is-center">
+                <p>&copy; <a href="https://github.com/HemanthPulicharla/Bgfish">Hemanth</a> 2025</p>
+            </div>
+            
+        </div>
+    </footer>
+</body>
+</html>
