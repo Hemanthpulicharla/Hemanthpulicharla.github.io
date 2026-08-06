@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gradient Descent : A hill climb problem | K.I.S.S</title>
+    
+    <!-- CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/normalize.css">
+    <link rel="stylesheet" href="/static/css/chota.min.css">
+    <link rel="stylesheet" href="/static/css/syntax.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="canonical" href="http://localhost/post/Gradient-Descent-as-water">
+    
+    <!-- JavaScript -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/contrib/auto-render.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.slim.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.4.0/mermaid.min.js"></script>
+    <script defer src="/static/js/app.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <section class="section">
+        <div class="container">
+            <nav id="topnav" class="nav">
+                <div id="nav-name" class="nav-left">
+                    <a id="nav-anchor" href="/">
+                        <div class="site-title">K.I.S.S</div>
+                        <div class="site-subtitle">Keep It Simple & Stupid</div>
+                    </a>
+                </div>
+                <div class="nav-right">
+                    <a class="nav-link" aria-label="about" href="/about">
+                        <i class="fas fa-user"></i>
+                    </a>
+                    <a class="nav-link" aria-label="rss" href="/rss.xml" target="_blank" rel="noopener">
+                        <i class="fas fa-rss"></i>
+                    </a>
+                    <a class="nav-link" aria-label="github" href="https://github.com/Hemanthpulicharla" target="_blank" rel="noopener">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a class="nav-link" aria-label="Visit my site" href="https://hemanthpulicharla.pythonanywhere.com/" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-globe"></i>
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    
+<section id="blog-article">
+    <article class="blog-content container">
+        <div class="post-meta">
+            <div class="date">
+                <i class="fas fa-calendar"></i>August 06, 2026
+            </div>
+            
+            <div class="date">
+                <i class="fas fa-edit"></i>Last Updated: August 06, 2026 at 10:04
+            </div>
+            
+            
+        </div>
+        <h1 class="title">Gradient Descent : A hill climb problem</h1>
+        <div class="content">
+            <p><em>That's what every professor says when teaching about GD to give some intuitive sense but do we really have understood it intuitively. Let's build a complete physical analogy that maps every GD concept to fluid dynamics, then use this to understand (and improve) optimizers</em></p>
+<h3>1. Physical Mapping</h3>
+<p>Lets try to map out GD to water flowing down the hills and then use the intuitive notions of fluid dynamics to derive our analogy that work for the GD</p>
+<div class="codehilite"><pre><span></span><code>GRADIENT DESCENT              WATER DYNAMICS
+─────────────────────────────────────────────────
+Loss function L(θ)        =   height h(x,y)
+Parameters θ              =   Water drop position
+Gradient ∇L              =   Slope of hill
+Learning rate α           =   Inverse of viscosity (fluid thickness)
+Momentum                  =   Mass inertia
+Learning rate decay       =   Increasing viscosity over time
+Local minimum             =   Pond (stable equilibrium)
+Saddle point              =   Mountain pass or gorges (unstable equilibrium)
+Global minimum            =   Ocean (lowest point)  which is our goal
+</code></pre></div>
+
+<h3>2. Governing equations:</h3>
+<p><strong>Water flowing downhill (simplified Navier-Stokes):</strong></p>
+<p>$$ Acceleration = Gravitational force - Friction $$</p>
+<p>$$\frac{dv}{dt} = -g \sin(\phi) - \mu v$$</p>
+<p>Where:
+- v = velocity
+- g = gravitational acceleration<br />
+- θ = terrain slope
+- μ = friction/viscosity coefficient</p>
+<p><em>and then we have two variants of GDs</em></p>
+<h5>i. Vanilla Gradient Descent (The Overdamped case)</h5>
+<p>Standard gradient descent updates parameters strictly based on the local, instantaneous slope:</p>
+<p>$$\theta_{new} = \theta_{old} - \alpha \nabla L(\theta_{old})$$</p>
+<p>In continuous time, by taking the step size $\Delta t \to 0$, this yields a <strong>first-order differential equation</strong>:</p>
+<p>$$\frac{d\theta}{dt} = -\alpha \nabla L(\theta)$$</p>
+<p>Physically, this represents the <strong>extreme high-viscosity limit ($\mu \to \infty$)</strong> where viscous drag completely dominates and kills mass.  acceleration drops to zero instantaneously ($\frac{dv}{dt} = 0$), meaning velocity is directly proportional to force ($v \propto F$). The moment the slope hits zero, the system stops dead with zero momentum memory as if it has no inertia.</p>
+<h5>ii. Momentum Gradient Descent (The Inertial case)</h5>
+<p>To simulate the physical mass and momentum of water, we introduce a velocity memory buffer $v$:</p>
+<p>$$v_{new} = \beta v_{old} - \alpha \nabla L(\theta_{old})$$
+$$\theta_{new} = \theta_{old} + v_{new}$$</p>
+<p>By taking the continuous-time limit ($\Delta t \to 0$) and letting $\beta = 1 - \mu \Delta t$, this discrete system cleanly reveals itself as a <strong>second-order differential equation</strong> (identical to a damped harmonic oscillator):</p>
+<p>$$\frac{d^2\theta}{dt^2} + \mu \frac{d\theta}{dt} = -\alpha \nabla L(\theta)$$</p>
+<p>This matches our physical fluid equation perfectly. The parameters now possess real mass, allow the system to accelerate down steep slopes, and provide the kinetic energy necessary to overshoot narrow local minima.</p>
+<h3>3. Code to equations</h3>
+<p>Equations on a page don't overshoot anything. To actually see the overdamped
+case crawl and the inertial case overshoot, we need real terrain and a real
+droplet sitting on it.</p>
+<p>Two things that moves everything in our space:</p>
+<ul>
+<li>$L(\theta)$ itself : the hill. We'll use a friendly paraboloid bowl first,
+  purely to check whether our slope fucntion is working correctly, then switch to a bumpy
+  Rastrigin surface (a space with lots of local minima and one global minimum defined by  (f(x) = An + \sum_{i=1}^n [x_i^2 - A \cos(2\pi x_i)])).</li>
+<li>$\nabla L(\theta)$ : the slope gradient. Rather than differentiating
+  each hill by hand, we let the computer estimate it directly from the
+  hill's height a tiny step in each direction whcih enable the fucntion to find slope for in any direction on any terrain</li>
+</ul>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="k">def</span> <span class="nf">bowl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span>
+
+<span class="k">def</span> <span class="nf">rastrigin</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">10</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">y</span><span class="p">))</span> <span class="o">+</span> <span class="mi">20</span>
+
+<span class="k">def</span> <span class="nf">slope</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">):</span>
+    <span class="n">dL_dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">L</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">eps</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">-</span> <span class="n">L</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">eps</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="n">dL_dy</span> <span class="o">=</span> <span class="p">(</span><span class="n">L</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">L</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="n">eps</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dL_dx</span><span class="p">,</span> <span class="n">dL_dy</span><span class="p">])</span>
+
+<span class="c1"># Let&#39;s test the functioning of fucntion with the bowl&#39;s true gradient [2x, 2y]:</span>
+<span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="p">[(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.3</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">)]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;slope</span><span class="si">{</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">slope</span><span class="p">(</span><span class="n">bowl</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">   true = </span><span class="si">{</span><span class="p">[</span><span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="o">*</span><span class="n">y</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>slope(1.0, 1.0) = [2. 2.]   true = [2.0, 2.0]
+slope(2.5, -1.3) = [ 5.  -2.6]   true = [5.0, -2.6]
+slope(-3.0, 4.0) = [-6.  8.]   true = [-6.0, 8.0]
+</code></pre></div>
+
+<p>Yeah they are somewhat agreeing and as such the <code>slope()</code> can be trusted
+on the bumpier rastrigin terrain that we are going to drop in.</p>
+<h3>4. Simulating the water droplet</h3>
+<p>This is $\theta_{new} = \theta_{old} - \alpha \nabla L(\theta_{old})$ and its
+momentum as seen from section 2, something that is simulating the real physical phenomena.
+One<code>step()</code> with $\beta = 0$ it's the overdamped case and any
+$\beta &gt; 0$ and it's the inertial one.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">Droplet</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heights</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+        <span class="n">grad</span> <span class="o">=</span> <span class="n">slope</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">grad</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">L</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span>
+
+    <span class="k">def</span> <span class="nf">flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span>
+</code></pre></div>
+
+<p>Let's see how the two cases beahave on
+the plain bowl where we know the answer is the origin.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">overdamped</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="n">overdamped</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">bowl</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+
+<span class="n">inertial</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+<span class="n">inertial</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">bowl</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+
+<span class="n">overshoots</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">inertial</span><span class="o">.</span><span class="n">heights</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;overdamped (beta=0)   settles at </span><span class="si">{</span><span class="n">overdamped</span><span class="o">.</span><span class="n">theta</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">, never once overshoots&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;inertial   (beta=0.9) settles at </span><span class="si">{</span><span class="n">inertial</span><span class="o">.</span><span class="n">theta</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">, overshoots </span><span class="si">{</span><span class="n">overshoots</span><span class="si">}</span><span class="s2"> times on the way down&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>overdamped (beta=0)   settles at [0. 0.], never once overshoots
+inertial   (beta=0.9) settles at [-0.0086 -0.0114], overshoots 45 times on the way down
+</code></pre></div>
+
+<p>Behaving as predicted $\beta=0$ glides straight in and stops
+dead the instant the slope flattens with no memory, no overshoot. $\beta=0.9$
+carries momentum and oscillates back and forth before
+settling, the damped-oscillator behaviour.</p>
+<h3>5. Real terrain - The analogy for step size thing</h3>
+<p>The bowl was just a check. Let's actually drop the overdamped droplet onto
+the rippled Rastrigin terrain and see what is this damping gives us.</p>
+<p>Naively we can say that bigger $\alpha$ (thinner fluid, less viscous) just
+means faster but sloppier descent, and smaller $\alpha$ means slower but
+safer - representing respectively water and honey. Let's actually check that
+assumption.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">safe</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="n">safe</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">rastrigin</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+
+<span class="n">reckless</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="n">reckless</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">rastrigin</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+
+<span class="n">worse_steps</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">reckless</span><span class="o">.</span><span class="n">heights</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-6</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;alpha=0.005: settles at </span><span class="si">{</span><span class="n">safe</span><span class="o">.</span><span class="n">theta</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s2">, height </span><span class="si">{</span><span class="n">safe</span><span class="o">.</span><span class="n">heights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;alpha=0.05:  ends up at </span><span class="si">{</span><span class="n">reckless</span><span class="o">.</span><span class="n">theta</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s2">, height </span><span class="si">{</span><span class="n">reckless</span><span class="o">.</span><span class="n">heights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span>
+      <span class="sa">f</span><span class="s2">&quot;  -- got WORSE on </span><span class="si">{</span><span class="n">worse_steps</span><span class="si">}</span><span class="s2">/299 steps&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>alpha=0.005: settles at [1.99 1.99], height 7.96
+alpha=0.05:  ends up at [-3.647 -3.647], height 58.70  -- got WORSE on 149/299 steps
+</code></pre></div>
+
+<p>At <code>alpha=0.05</code> the droplet's step is <em>larger than the spacing between ponds</em>, so instead of rolling
+downhill it leaps over several ripples every time and lands somewhere close to random. It gets worse on over half the steps (149/299).</p>
+<p>There's some real thershold in the terrain's own dynamics as in below roughly <code>alpha=0.01</code> the droplet flows properly and above
+it, the "water" analogy breaks down entirely and it can better be described as a droplet in an earthquake.</p>
+<p>Here the <strong>Over damping</strong> is occuring for honey as such it has no inertia, so it can never overshoot which is what "high
+viscosity" actually means. If we want something that behaves like <em>actual water</em>, with real momentum, that's the $\beta&gt;0$ case from Section 4, not this one.</p>
+<h3>6. Momentum's own Goldilocks zone</h3>
+<p>If honey (over damped one) gets stuck in the first pond it finds, does adding inertia always
+help? Let's sweep $\beta$ at the same safe $\alpha$ and see it for ourselves.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">for</span> <span class="n">beta</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">]:</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="n">beta</span><span class="p">)</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">rastrigin</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;beta=</span><span class="si">{</span><span class="n">beta</span><span class="si">:</span><span class="s2">&lt;5</span><span class="si">}</span><span class="s2"> settles at </span><span class="si">{</span><span class="n">d</span><span class="o">.</span><span class="n">theta</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s2">  height=</span><span class="si">{</span><span class="n">d</span><span class="o">.</span><span class="n">heights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">7.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>beta=0.0   settles at [1.99 1.99]  height=  7.960
+beta=0.5   settles at [1.99 1.99]  height=  7.960
+beta=0.8   settles at [1.99 1.99]  height=  7.960
+beta=0.9   settles at [0.995 0.995]  height=  1.990
+beta=0.95  settles at [2.984 2.984]  height= 17.909
+beta=0.99  settles at [-10.009 -10.009]  height=200.391
+</code></pre></div>
+
+<p><em><strong>Note that the global minima of rastrigin function is located at (0,0) as such see which is sweeping closer towards it</strong></em></p>
+<p>So momentum has its own overdamped/inertial spectrum in miniature:</p>
+<ul>
+<li><strong>$\beta \le 0.8$</strong> : not enough kinetic energy to climb out of the first
+  pond; same result as no momentum at all.</li>
+<li><strong>$\beta = 0.9$</strong> : just enough energy to climb the far wall of its pond
+  and roll into a genuinely deeper one nearby.</li>
+<li><strong>$\beta = 0.95$</strong> : overshoots <em>past</em> the good pond into a worse one.</li>
+<li><strong>$\beta = 0.99$</strong> : so much inertia it never settles anywhere; same
+  species of chaos as the reckless $\alpha$ above, just caused by too much
+  mass instead of too big a step.</li>
+</ul>
+<p>Inertia is a resource with a cost, not a strict improvement which is exactly the
+same shape of trade-off as viscosity had, and worth noting as a matched pair
+in the writeup.</p>
+<h3>7. Watching the flow</h3>
+<p>One picture, worth the thousand words above. Note the deliberately
+<em>asymmetric</em> starting point... the Rastrigin surface here is separable
+($L(x,y) = f(x) + f(y)$, no cross-term), so a symmetric start collapses
+every path onto one diagonal line and hides exactly the divergence we want
+to see.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="n">start</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">1.7</span><span class="p">)</span>
+<span class="n">runs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;honey, beta=0&quot;</span><span class="p">:</span>            <span class="p">(</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>  <span class="n">Droplet</span><span class="p">(</span><span class="o">*</span><span class="n">start</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)),</span>
+    <span class="s2">&quot;momentum, beta=0.9&quot;</span><span class="p">:</span>       <span class="p">(</span><span class="s2">&quot;orange&quot;</span><span class="p">,</span> <span class="n">Droplet</span><span class="p">(</span><span class="o">*</span><span class="n">start</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)),</span>
+    <span class="s2">&quot;too much inertia, beta=0.99&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">Droplet</span><span class="p">(</span><span class="o">*</span><span class="n">start</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.99</span><span class="p">)),</span>
+<span class="p">}</span>
+<span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">runs</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">rastrigin</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+
+<span class="n">xs</span> <span class="o">=</span> <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span>
+<span class="n">Z</span> <span class="o">=</span> <span class="n">rastrigin</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+<span class="n">cs</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;viridis&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">cs</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;height&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="p">(</span><span class="n">color</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="ow">in</span> <span class="n">runs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">path</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">path</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="o">*</span><span class="n">path</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="o">*</span><span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;X&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;cyan&quot;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;the ocean (0,0)&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Three droplets, one hill&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper left&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+
+<p><img alt="png" src="/static/images/Droplet_settle.png" /></p>
+<h3>8. Saddle points</h3>
+<p>The pond-and-ocean picture from Section 1 also names saddle points as <em>mountain passes</em> or <em>some stable plain space</em>.. unstable equilibria where the surface curves up in one direction and down in another. The textbook claim is usually: plain GD gets stuck balanced on the pass, and only momentum can knock it off.</p>
+<p>Worth testing before repeating it. Take the cleanest possible saddle,
+$L(x,y) = x^2 - y^2$, and start a droplet of a minute value from the exact
+pass:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">saddle</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;plain GD (beta=0), started at (0.01, 0.01):&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">]:</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">saddle</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  after </span><span class="si">{</span><span class="n">n</span><span class="si">:</span><span class="s2">3d</span><span class="si">}</span><span class="s2"> steps, |y| = </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">theta</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;momentum (beta=0.9), same start:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">]:</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">saddle</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  after </span><span class="si">{</span><span class="n">n</span><span class="si">:</span><span class="s2">3d</span><span class="si">}</span><span class="s2"> steps, |y| = </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">theta</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">()</span>
+<span class="n">d_exact</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="n">d_exact</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">saddle</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;started EXACTLY at the pass (0,0):&quot;</span><span class="p">,</span> <span class="n">d_exact</span><span class="o">.</span><span class="n">theta</span><span class="p">,</span> <span class="s2">&quot;-- truly never moves, zero slope&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>plain GD (beta=0), started at (0.01, 0.01):
+  after  10 steps, |y| = 0.0619
+  after  50 steps, |y| = 91.0044
+  after 100 steps, |y| = 828179.0520
+
+momentum (beta=0.9), same start:
+  after  10 steps, |y| = 0.3845
+  after  50 steps, |y| = 4250827.5594
+  after 100 steps, |y| = 804109874204.1071
+
+started EXACTLY at the pass (0,0): [0. 0.] -- truly never moves, zero slope
+</code></pre></div>
+
+<p>So the textbook line needs an asterisk. Plain GD is only a <em>true</em> fixed
+point if it starts exactly on the pass ... a razor's-edge coincidence that
+never happens in practice (any floating-point noise nudges it off). Given
+the tiniest nudge, plain GD <em>does</em> slide off the pass and down into the
+unbounded direction.. it just takes longer to build speed than momentum
+does. By 50 steps, momentum is already ~46,000× further down the slope than
+plain GD.</p>
+<p>So rather we can say something like this maybe <strong>momentum doesn't rescue GD from a mountain pass.. it
+just gets off it faster.</strong></p>
+<h3>9. Adam optimiser</h3>
+<p>Section 1's mapping treats viscosity as one global dial. But real terrain
+is rarely equally steep in every direction.. picture a gorge, steep
+walls either side, sloped along its length. A single viscosity has
+to compromise: cautious enough not to slam into the walls, which makes it
+crawl along the gorge's length.</p>
+<p>Adam is water that sets its <em>own</em> local viscosity per direction .. thick where the slope is steep, thin where it's flat:</p>
+<p>$$m_t = \beta_1 m_{t-1} + (1-\beta_1)\nabla L, \qquad
+v_t = \beta_2 v_{t-1} + (1-\beta_2)(\nabla L)^2$$
+$$\theta_{new} = \theta_{old} - \alpha \frac{\hat m_t}{\sqrt{\hat v_t} + \epsilon}$$</p>
+<p>where $\hat m_t, \hat v_t$ are bias-corrected versions of $m_t, v_t$.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">AdamDroplet</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">beta1</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">beta2</span><span class="o">=</span><span class="mf">0.999</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">m</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta1</span><span class="p">,</span> <span class="n">beta2</span><span class="p">,</span> <span class="n">eps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heights</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">grad</span> <span class="o">=</span> <span class="n">slope</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">m</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta1</span><span class="p">)</span> <span class="o">*</span> <span class="n">grad</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta2</span><span class="p">)</span> <span class="o">*</span> <span class="n">grad</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">m_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">m</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta1</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">v_hat</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">beta2</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">m_hat</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">v_hat</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">L</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span>
+
+    <span class="k">def</span> <span class="nf">flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span>
+
+<span class="c1"># gorge</span>
+<span class="n">gorge</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">100</span><span class="o">*</span><span class="n">y</span><span class="o">**</span><span class="mi">2</span>
+
+<span class="n">honey_in_gorge</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.009</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="n">honey_in_gorge</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">gorge</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+
+<span class="n">smart_water</span> <span class="o">=</span> <span class="n">AdamDroplet</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">smart_water</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">gorge</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;honey  (alpha=0.009, its stability limit): height=</span><span class="si">{</span><span class="n">honey_in_ravine</span><span class="o">.</span><span class="n">heights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adam   (alpha=0.1, 10x larger):            height=</span><span class="si">{</span><span class="n">smart_water</span><span class="o">.</span><span class="n">heights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>honey  (alpha=0.009, its stability limit): height=0.0063
+Adam   (alpha=0.1, 10x larger):            height=0.0000
+</code></pre></div>
+
+<p>Adam converges to essentially zero with a <em>larger</em> nominal $\alpha$ than honey can even survive at. That's the mechanism made robust where it's thick in the steep direction and thin in the flat one, simultaneously, which plain viscosity can never do with one shared dial.</p>
+<h3>10. Annealing in SGD</h3>
+<p>Section 1 maps a decaying learning rate to "increasing viscosity over time." Tried the obvious way.. start already-safe and decay further.. and
+it changes nothing, because the droplet has already settled into its first pond within a handful of steps; cooling something that already stopped moving does nothing.</p>
+<p>The version that matters is the opposite order: <strong>start reckless (chaotic with large alpha, exploring many ponds), then cool into caution</strong> ..actual simulated annealing.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">schedules</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;always reckless&quot;</span><span class="p">:</span>    <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+    <span class="s2">&quot;always cautious&quot;</span><span class="p">:</span>    <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="mf">0.005</span><span class="p">,</span>
+    <span class="s2">&quot;reckless -&gt; cautious (annealed)&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="mf">0.005</span> <span class="o">+</span> <span class="mf">0.045</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.02</span> <span class="o">*</span> <span class="n">t</span><span class="p">),</span>
+<span class="p">}</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">alpha_fn</span> <span class="ow">in</span> <span class="n">schedules</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">Droplet</span><span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">1.7</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha_fn</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">300</span><span class="p">):</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha_fn</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>   <span class="c1"># re-set viscosity each step, straight from the schedule</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">rastrigin</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;35</span><span class="si">}</span><span class="s2"> height=</span><span class="si">{</span><span class="n">d</span><span class="o">.</span><span class="n">heights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code><span class="n">always</span><span class="w"> </span><span class="n">reckless</span><span class="w">                     </span><span class="n">height</span><span class="o">=</span><span class="mf">34.242</span>
+<span class="n">always</span><span class="w"> </span><span class="n">cautious</span><span class="w">                     </span><span class="n">height</span><span class="o">=</span><span class="mf">7.960</span>
+<span class="n">reckless</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">cautious</span><span class="w"> </span><span class="p">(</span><span class="n">annealed</span><span class="p">)</span><span class="w">     </span><span class="n">height</span><span class="o">=</span><span class="mf">5.079</span>
+</code></pre></div>
+
+<p>Annealing beats staying cautious the whole time. Starting hot lets the droplet sample several ponds before it has to commit to one; cooling down
+afterward means it settles wherever that exploration left it.... which tends to beat greedily taking the very first pond it stumbles into.</p>
+<h3>11. SGLD (Stochastic Gradient Langevin Dynamics)</h3>
+<p>Section 3's ripple-terrain chaos and Section 10's annealing both hint at something noise-like happening. It's
+an established equivalence: <strong>Welling &amp; Teh (2011)</strong>, <em>Bayesian Learning via Stochastic Gradient Langevin Dynamics</em>, and <strong>Mandt, Hoffman &amp; Blei
+(2017)</strong>, <em>Stochastic Gradient Descent as Approximate Bayesian Inference</em>, show that gradient descent with calibrated noise behaves like a real
+thermodynamic system at temperature $T$:</p>
+<p>$$\theta_{new} = \theta_{old} - \alpha \nabla L(\theta_{old}) + \sqrt{2\alpha T}\,\xi, \qquad \xi \sim \mathcal{N}(0, I)$$</p>
+<p>$T=0$ collapses this back to plain GD exactly.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">HeatedDroplet</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">T</span> <span class="o">=</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">T</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heights</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+        <span class="n">grad</span> <span class="o">=</span> <span class="n">slope</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">)</span>
+        <span class="n">noise</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">T</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">grad</span> <span class="o">+</span> <span class="n">noise</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">L</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">theta</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span>
+
+    <span class="k">def</span> <span class="nf">flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta</span>
+
+<span class="k">for</span> <span class="n">T</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">]:</span>
+    <span class="n">escapes</span><span class="p">,</span> <span class="n">finals</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">seed</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">HeatedDroplet</span><span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">1.7</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="n">T</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">rastrigin</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="n">finals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">heights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">heights</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">5.0</span><span class="p">:</span>
+            <span class="n">escapes</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;T=</span><span class="si">{</span><span class="n">T</span><span class="si">:</span><span class="s2">&lt;5</span><span class="si">}</span><span class="s2"> escaped its starting pond </span><span class="si">{</span><span class="n">escapes</span><span class="si">:</span><span class="s2">2d</span><span class="si">}</span><span class="s2">/20 times, mean final height=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">finals</span><span class="p">)</span><span class="si">:</span><span class="s2">6.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>T=0.5   escaped its starting pond  0/20 times, mean final height= 12.75
+T=1.0   escaped its starting pond  0/20 times, mean final height= 14.16
+T=2.0   escaped its starting pond  2/20 times, mean final height= 11.42
+T=5.0   escaped its starting pond  2/20 times, mean final height= 19.38
+T=10.0  escaped its starting pond  0/20 times, mean final height= 35.58
+</code></pre></div>
+
+<p>The real statistical-mechanics story, with numbers behind it: too cold
+(T=0.5–1) and it never has the energy to climb out; a middle temperature
+(T=2–5) occasionally escapes to somewhere better; too hot (T=10) and it
+never settles anywhere at all... its <em>average</em> outcome is worse than doing
+nothing, because it's now just wandering.</p>
+<p><em><em>That's the real story of why a little noise in training (like using small mini-batches, which is naturally noisy) can help escape bad spots, but too much noise just prevents the model from ever converging.</em></em></p>
+<h3>12. Lil crooked animation</h3>
+<p>Everything above has been end-states and single snapshots. Here's a version
+that actually plays, frame by frame — honey gliding straight in and
+stopping, momentum visibly looping before it settles.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">matplotlib.animation</span> <span class="kn">import</span> <span class="n">FuncAnimation</span><span class="p">,</span> <span class="n">PillowWriter</span>
+
+<span class="n">start</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">1.7</span><span class="p">),</span> <span class="mi">150</span>
+<span class="n">cast</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;honey, beta=0&quot;</span><span class="p">:</span>      <span class="p">(</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>  <span class="n">Droplet</span><span class="p">(</span><span class="o">*</span><span class="n">start</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)),</span>
+    <span class="s2">&quot;momentum, beta=0.9&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;orange&quot;</span><span class="p">,</span> <span class="n">Droplet</span><span class="p">(</span><span class="o">*</span><span class="n">start</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)),</span>
+<span class="p">}</span>
+<span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">cast</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">flow</span><span class="p">(</span><span class="n">rastrigin</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">)</span>
+
+<span class="n">xs</span> <span class="o">=</span> <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">250</span><span class="p">)</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span>
+<span class="n">Z</span> <span class="o">=</span> <span class="n">rastrigin</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;viridis&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;cyan&quot;</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">zorder</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;the ocean&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">dots</span><span class="p">,</span> <span class="n">trails</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">color</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="ow">in</span> <span class="n">cast</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="p">(</span><span class="n">dot</span><span class="p">,)</span>   <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([],</span> <span class="p">[],</span> <span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">mec</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="p">(</span><span class="n">trail</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([],</span> <span class="p">[],</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+    <span class="n">dots</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">trails</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">dot</span><span class="p">,</span> <span class="n">trail</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s2">&quot;upper left&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">frame</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="ow">in</span> <span class="n">cast</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">path</span><span class="p">[:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">dots</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">set_data</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">]],</span> <span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="n">trails</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="n">p</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">p</span><span class="p">[:,</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">dots</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">trails</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+<span class="n">anim</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">n_steps</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<span class="n">anim</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;droplets.gif&quot;</span><span class="p">,</span> <span class="n">writer</span><span class="o">=</span><span class="n">PillowWriter</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">20</span><span class="p">))</span>
+</code></pre></div>
+
+<p><img src="/static/images/droplets.gif" alt="My Animation" /></p>
+<h4>But why?</h4>
+<p>Despite all these tropes why is that the droplets are not reaching the ocean still? Cause none of these techniques (momentum, annealing, noise, Adam) guarantee finding the global minimum. What they do is improve your odds of finding something better than the laziest possible answer. This maps directly onto real neural network training: nobody training a real model ever verifies they've hit the true global minimum across millions of parameters... it's not even computationally checkable. In practice, training accepts "a good enough local minimum" as success, and the entire reason optimizers like momentum and Adam exist is to make that local minimum as good as reasonably possible, not to guarantee perfection</p>
+<h3>13. Where the analogy bends</h3>
+<ul>
+<li>This terrain is <em>separable</em> ($L(x,y)=f(x)+f(y)$)... there's no real
+  coupled diagonal flow here, x and y are secretly two independent 1-D problems. A real loss surface, and a truly diagonal-flow demo, needs a
+  cross term.</li>
+<li>Real loss landscapes live in thousands or millions of dimensions, not two. Intuition built on a 2-D hill doesn't automatically transfer.</li>
+<li>"Temperature" is only a literal, calibrated thing when you deliberately add SGLD-style noise, as in Section 11. Ordinary mini-batch noise is <em>temperature-like</em>, not identical to it.</li>
+<li>Parameters don't have real mass... momentum is a useful bookkeeping trick that behaves like inertia, not literal inertia.</li>
+</ul>
+        </div>
+        
+        
+        <hr>
+        <div class="comment-section">
+            <h3>Comments</h3>
+            
+            <!-- 
+            <form method="post" action="/post/3/comment" class="comment-form">
+                <div class="form-group">
+                    <label for="author">Name</label>
+                    <input type="text" name="author" id="author" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="content">Comment</label>
+                    <textarea name="content" id="content" class="form-control" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
+            -->
+        </div>
+    </article>
+</section>
+
+
+    <!-- Footer -->
+    <footer class="copy-right">
+        <div class="container">
+            <div class="is-full-width is-center">
+                <p>&copy; <a href="https://hemanthpulicharla.pythonanywhere.com/">Hemanth</a> 2025</p>
+            </div>
+            
+        </div>
+    </footer>
+</body>
+</html>
