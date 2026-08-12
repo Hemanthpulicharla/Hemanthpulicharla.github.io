@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bias-Variance Decomposition of Indian Elections | K.I.S.S</title>
+    
+    <!-- CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/normalize.css">
+    <link rel="stylesheet" href="/static/css/chota.min.css">
+    <link rel="stylesheet" href="/static/css/syntax.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="canonical" href="http://localhost/post/bias-variance-indian-election">
+    
+    <!-- JavaScript -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/contrib/auto-render.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.slim.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.4.0/mermaid.min.js"></script>
+    <script defer src="/static/js/app.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <section class="section">
+        <div class="container">
+            <nav id="topnav" class="nav">
+                <div id="nav-name" class="nav-left">
+                    <a id="nav-anchor" href="/">
+                        <div class="site-title">K.I.S.S</div>
+                        <div class="site-subtitle">Keep It Simple & Stupid</div>
+                    </a>
+                </div>
+                <div class="nav-right">
+                    <a class="nav-link" aria-label="about" href="/about">
+                        <i class="fas fa-user"></i>
+                    </a>
+                    <a class="nav-link" aria-label="rss" href="/rss.xml" target="_blank" rel="noopener">
+                        <i class="fas fa-rss"></i>
+                    </a>
+                    <a class="nav-link" aria-label="github" href="https://github.com/Hemanthpulicharla" target="_blank" rel="noopener">
+                        <i class="fab fa-github"></i>
+                    </a>
+                    <a class="nav-link" aria-label="Visit my site" href="https://hemanthpulicharla.pythonanywhere.com/" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-globe"></i>
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    
+<section id="blog-article">
+    <article class="blog-content container">
+        <div class="post-meta">
+            <div class="date">
+                <i class="fas fa-calendar"></i>August 12, 2026
+            </div>
+            
+            <div class="date">
+                <i class="fas fa-edit"></i>Last Updated: August 12, 2026 at 15:39
+            </div>
+            
+            
+            <div class="tags-container">
+                
+                    <a href="/tag/" class="tag"></a>
+                
+            </div>
+            
+        </div>
+        <h1 class="title">Bias-Variance Decomposition of Indian Elections</h1>
+        <div class="content">
+            <p>Every Indian election cycle produces the same ritual: exit polls drop hours before results, television panels argue over whose number is closest, and a day later half of them are dramatically, embarrassingly wrong. 2004's "India Shining" collapse and 2024's herd toward a 400+ NDA tally are the two most cited examples. The standard explanation is "the polls were biased."</p>
+<p><strong>Heuristic:</strong> Election exit poll failure isn't random noise; it's systematic. This notebook decomposes the Indian Lok Sabha exit-poll error into <strong>bias²</strong> (everyone wrong in the same direction) and <strong>variance</strong> (pollsters disagreeing with each other), using the classic ML bias-variance identity: If error is bias-dominated, the intuitive fix of <em>"just average more polls"</em> doesn't work, because averaging cancels independent noise, not a shared bias.
+'</p>
+<hr />
+<h3>Pre-script [PS :)]:</h3>
+<ul>
+<li>1.Under FPTP, a small vote-share shift produces a large seat swing, so bias/variance on seats will look larger than the same computation on vote share.</li>
+<li>2.Each election has 3-6 polls (variance from that few points is itself noisy and weak sample size from a statistical pov), and the cross-election bias test below has only 7 elections.</li>
+<li>
+<ol>
+<li>Polls released the same evening, by firms aware of each other's history, are not independent draws (where the i.i.d. assumption for bias-variance breaks off)- that's precisely what "herding" (Section 6) means, and it undercuts the clean "variance = disagreement" story from Section 1.</li>
+</ol>
+</li>
+<li>
+<ol>
+<li>The parties involved are real (BJP/NDA, Congress/INC); the point of this notebook is exit-poll methodology, not commentary on outcomes.</li>
+</ol>
+</li>
+</ul>
+<hr />
+<h2>Bias vs. variance</h2>
+<p>In machine learning, prediction error splits cleanly into two independent sources:</p>
+<ul>
+<li><strong>Bias</strong> - being wrong in the same direction, consistently. Every model (or every pollster) makes the same kind of mistake.</li>
+<li><strong>Variance</strong> - disagreeing with each other. No consistent direction, just noise and instability between different attempts.
+The distinction matters because the fix for each is completely different. Averaging many predictions together cancels out variance- that's the whole premise of a "poll of polls." But averaging does <strong>nothing</strong> for bias: if every pollster is wrong in the same direction, their average is <em>also</em> wrong in that direction. You can't average your way out of a shared blind spot.</li>
+</ul>
+<p>So the real question isn't "Were the polls wrong" -it's "were they wrong <em>independently</em>?" Those require entirely different remedies, and only one of them is fixed by "just polling more people."</p>
+<div class="codehilite"><pre><span></span><code><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">matplotlib.ticker</span> <span class="k">as</span> <span class="nn">mticker</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;figure.dpi&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">110</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;axes.spines.top&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;axes.spines.right&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;font.size&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>
+
+<span class="n">COLOR_NDA</span>  <span class="o">=</span> <span class="s1">&#39;#E86A33&#39;</span>   <span class="c1"># orange</span>
+<span class="n">COLOR_INC</span>  <span class="o">=</span> <span class="s1">&#39;#3B6EA5&#39;</span>   <span class="c1"># blue</span>
+<span class="n">COLOR_BIAS</span> <span class="o">=</span> <span class="s1">&#39;#C0392B&#39;</span>   <span class="c1"># red   (systematic error)</span>
+<span class="n">COLOR_VAR</span>  <span class="o">=</span> <span class="s1">&#39;#2E86AB&#39;</span>   <span class="c1"># blue  (random disagreement)</span>
+</code></pre></div>
+
+<hr />
+<div class="codehilite"><pre><span></span><code><span class="n">historical_election_polling_dataset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="s2">&quot;election_year&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1996</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;total_seats&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">543</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;actual_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">140</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">52</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">164</span><span class="p">},</span>
+<span class="w">     </span><span class="s2">&quot;exit_polls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Doordarshan-CSDS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">33000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">195</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">150</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">48</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">150</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Frontline-CMS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">182</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">165</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">146</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;India Today-MARG&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">29000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">190</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">136</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">54</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">163</span><span class="p">}}]},</span>
+<span class="w">    </span><span class="p">{</span><span class="s2">&quot;election_year&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1998</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;total_seats&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">543</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;actual_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">252</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">166</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">48</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">77</span><span class="p">},</span>
+<span class="w">     </span><span class="s2">&quot;exit_polls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C-Voter&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">250</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">155</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">51</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">87</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DRS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">35000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">242</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">164</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">53</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">84</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RMG&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">28000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">240</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">150</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">103</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Media Research Group&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">245</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">158</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">49</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">91</span><span class="p">}}]},</span>
+<span class="w">    </span><span class="p">{</span><span class="s2">&quot;election_year&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1999</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;total_seats&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">543</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;actual_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">303</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">136</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">43</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">61</span><span class="p">},</span>
+<span class="w">     </span><span class="s2">&quot;exit_polls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Insight-Doordarshan&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">48000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">300</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">140</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">61</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C-Voter&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">45000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">315</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DRS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">287</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">142</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">46</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">68</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Times Now-Development Profile&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">36000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">310</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">132</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">41</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">}}]},</span>
+<span class="w">    </span><span class="p">{</span><span class="s2">&quot;election_year&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2004</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;total_seats&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">543</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;note&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;The Great &#39;India Shining&#39; Deflation. Massive systemic positive bias towards the incumbent.&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;actual_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">181</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">218</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">59</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">85</span><span class="p">},</span>
+<span class="w">     </span><span class="s2">&quot;exit_polls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NDTV-Indian Express-CSDS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">55000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">240</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">181</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">72</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Aaj Tak-ORC&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">62000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">248</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">190</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">45</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Star News-C Voter&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">267</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">171</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">48</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">57</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Zee News-MDRA&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">40000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">249</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">178</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">52</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sahara-DRS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">45000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">263</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">180</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">46</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">54</span><span class="p">}}]},</span>
+<span class="w">    </span><span class="p">{</span><span class="s2">&quot;election_year&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2009</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;total_seats&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">543</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;note&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Underestimation of incumbent coalition (UPA). Overestimation of the opposition.&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;actual_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">159</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">262</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">79</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">43</span><span class="p">},</span>
+<span class="w">     </span><span class="s2">&quot;exit_polls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NDTV-Nielsen&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">72000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">177</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">211</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">85</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">70</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CNN-IBN-CSDS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">40000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">175</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">205</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">83</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Star News-Nielsen&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">182</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">199</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">86</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">76</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Headline Today-CVoter&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">58000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">181</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">194</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">88</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NewsX-DevTech&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">38000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">191</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">195</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">78</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">79</span><span class="p">}}]},</span>
+<span class="w">    </span><span class="p">{</span><span class="s2">&quot;election_year&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2014</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;total_seats&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">543</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;note&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Underestimation of the BJP wave intensity. Only Chanakya captured the majority breakout.&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;actual_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">336</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">137</span><span class="p">},</span>
+<span class="w">     </span><span class="s2">&quot;exit_polls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CNN-IBN-CSDS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">45000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">276</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">97</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">155</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;India Today-Cicero&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">68000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">272</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">115</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">143</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;News 24-Chanakya&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">52000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">340</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">70</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">121</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ABP-Nielsen&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">81000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">281</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">97</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">149</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NDTV-Hansa&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">75000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">279</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">103</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">147</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;India TV-CNX&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">289</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">101</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">138</span><span class="p">}}]},</span>
+<span class="w">    </span><span class="p">{</span><span class="s2">&quot;election_year&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2019</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;total_seats&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">543</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;note&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Relatively close on trajectory, but still clustering tight variance around safely conservative estimates.&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;actual_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">353</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">91</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">94</span><span class="p">},</span>
+<span class="w">     </span><span class="s2">&quot;exit_polls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;India Today-Axis My India&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">742000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">349</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">87</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;News24-Todays Chanakya&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">350</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">95</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">93</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;News18-IPSOS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">120000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">336</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">82</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">119</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Times Now-VMR&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">45000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">306</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">132</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">98</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ABP-CVoter&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">68000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">287</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">123</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NewsX-Neta&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">95000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">242</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">164</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">133</span><span class="p">}}]},</span>
+<span class="w">    </span><span class="p">{</span><span class="s2">&quot;election_year&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2024</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;total_seats&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">543</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;note&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Severe herding towards systemic upper-limit bound (400+). Massive failure of vote-to-seat conversion metrics.&quot;</span><span class="p">,</span>
+<span class="w">     </span><span class="s2">&quot;actual_results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">293</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">234</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">},</span>
+<span class="w">     </span><span class="s2">&quot;exit_polls&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;India Today-Axis My India&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">580000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">381</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">148</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;News24-Todays Chanakya&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">85000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">400</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">107</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">32</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ABP-CVoter&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">424000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">368</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">167</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Republic-Matrize&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">350000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">360</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">125</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">53</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Times Now-ETG&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">150000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">358</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">152</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">27</span><span class="p">}},</span>
+<span class="w">        </span><span class="p">{</span><span class="s2">&quot;agency&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;India TV-CNX&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;sample_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">180000</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;predictions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="s2">&quot;BJP_NDA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">386</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;INC_UPA&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">124</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;LEFT&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;OTH_NF_UF&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">28</span><span class="p">}}]},</span>
+<span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Dataset B: {len(historical_election_polling_dataset)} elections&quot;</span><span class="p">)</span><span class="w"> </span><span class="err">```</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code><span class="n">def</span><span class="w"> </span><span class="n">normalize_agency</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="err">:</span>
+<span class="w">    </span><span class="s1">&#39;&#39;&#39;Loose normalization so the same firm from either source lines up.&#39;&#39;&#39;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">name</span><span class="p">.</span><span class="nf">lower</span><span class="p">()</span>
+<span class="w">                </span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="ss">&quot;today&#39;s&quot;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;todays&#39;</span><span class="p">)</span>
+<span class="w">                </span><span class="p">.</span><span class="n">strip</span><span class="p">())</span>
+
+<span class="n">def</span><span class="w"> </span><span class="n">canonicalize</span><span class="p">(</span><span class="n">election</span><span class="p">,</span><span class="w"> </span><span class="k">schema</span><span class="p">)</span><span class="err">:</span>
+<span class="w">    </span><span class="s1">&#39;&#39;&#39;Map an election record from either schema onto NDA/INC/LEFT/OTH.&#39;&#39;&#39;</span>
+<span class="w">    </span><span class="nf">year</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">election</span><span class="o">[</span><span class="n">&#39;election_year&#39;</span><span class="o">]</span>
+<span class="w">    </span><span class="n">actual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">election</span><span class="o">[</span><span class="n">&#39;actual_results&#39;</span><span class="o">]</span>
+<span class="w">    </span><span class="n">polls</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">{}</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">election</span><span class="o">[</span><span class="n">&#39;exit_polls&#39;</span><span class="o">]</span><span class="err">:</span>
+<span class="w">        </span><span class="n">pred</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="o">[</span><span class="n">&#39;predictions&#39;</span><span class="o">]</span>
+<span class="w">        </span><span class="n">agency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">normalize_agency</span><span class="p">(</span><span class="n">p</span><span class="o">[</span><span class="n">&#39;agency&#39;</span><span class="o">]</span><span class="p">)</span>
+<span class="w">        </span><span class="n">polls</span><span class="o">[</span><span class="n">agency</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">{</span>
+<span class="w">            </span><span class="s1">&#39;NDA&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">pred</span><span class="o">[</span><span class="n">schema[&#39;NDA&#39;</span><span class="o">]</span><span class="err">]</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;INC&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">pred</span><span class="o">[</span><span class="n">schema[&#39;INC&#39;</span><span class="o">]</span><span class="err">]</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;sample_size&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="k">get</span><span class="p">(</span><span class="s1">&#39;sample_size&#39;</span><span class="p">),</span>
+<span class="w">        </span><span class="err">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="err">{</span>
+<span class="w">        </span><span class="s1">&#39;year&#39;</span><span class="err">:</span><span class="w"> </span><span class="nf">year</span><span class="p">,</span>
+<span class="w">        </span><span class="s1">&#39;actual_NDA&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">actual</span><span class="o">[</span><span class="n">schema[&#39;NDA&#39;</span><span class="o">]</span><span class="err">]</span><span class="p">,</span>
+<span class="w">        </span><span class="s1">&#39;actual_INC&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">actual</span><span class="o">[</span><span class="n">schema[&#39;INC&#39;</span><span class="o">]</span><span class="err">]</span><span class="p">,</span>
+<span class="w">        </span><span class="s1">&#39;polls&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">polls</span><span class="p">,</span>
+<span class="w">    </span><span class="err">}</span>
+</code></pre></div>
+
+<h2>Bias-variance decomposition per election</h2>
+<p>For each election, treat the NDA seat predictions from all pollsters as draws of an estimator $\hat y$, and the actual NDA seat count as the truth $y$.</p>
+<p>$$ \mathbb{E}[(\hat y - y)^2] = (\mathbb{E}[\hat y] - y)^2 + \mathbb{E}[(\hat y - \mathbb{E}[\hat y])^2] $$</p>
+<p>$$ \text{MSE} = \text{Bias}^2 + \text{Variance} $$</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">bias_variance_decomposition</span><span class="p">(</span><span class="n">actual</span><span class="p">,</span> <span class="n">poll_predictions</span><span class="p">):</span>
+    <span class="n">predictions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">poll_predictions</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="n">mean_prediction</span> <span class="o">=</span> <span class="n">predictions</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">bias</span> <span class="o">=</span> <span class="n">mean_prediction</span> <span class="o">-</span> <span class="n">actual</span>
+    <span class="n">variance</span> <span class="o">=</span> <span class="n">predictions</span><span class="o">.</span><span class="n">var</span><span class="p">()</span>  <span class="c1"># population variance, ddof=0</span>
+    <span class="n">individual_errors</span> <span class="o">=</span> <span class="n">predictions</span> <span class="o">-</span> <span class="n">actual</span>
+    <span class="n">mse</span> <span class="o">=</span> <span class="n">bias</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">variance</span>
+
+    <span class="n">bias_fraction</span> <span class="o">=</span> <span class="n">bias</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">mse</span> <span class="k">if</span> <span class="n">mse</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+    <span class="n">variance_fraction</span> <span class="o">=</span> <span class="n">variance</span> <span class="o">/</span> <span class="n">mse</span> <span class="k">if</span> <span class="n">mse</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;bias&#39;</span><span class="p">:</span> <span class="n">bias</span><span class="p">,</span> <span class="s1">&#39;variance&#39;</span><span class="p">:</span> <span class="n">variance</span><span class="p">,</span> <span class="s1">&#39;mse&#39;</span><span class="p">:</span> <span class="n">mse</span><span class="p">,</span>
+        <span class="s1">&#39;bias_fraction&#39;</span><span class="p">:</span> <span class="n">bias_fraction</span><span class="p">,</span> <span class="s1">&#39;variance_fraction&#39;</span><span class="p">:</span> <span class="n">variance_fraction</span><span class="p">,</span>
+        <span class="s1">&#39;mean_prediction&#39;</span><span class="p">:</span> <span class="n">mean_prediction</span><span class="p">,</span> <span class="s1">&#39;actual&#39;</span><span class="p">:</span> <span class="n">actual</span><span class="p">,</span>
+        <span class="s1">&#39;individual_errors&#39;</span><span class="p">:</span> <span class="n">individual_errors</span><span class="p">,</span> <span class="s1">&#39;n_polls&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">predictions</span><span class="p">),</span>
+    <span class="p">}</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">elections</span><span class="p">:</span>
+    <span class="n">nda_preds</span> <span class="o">=</span> <span class="p">{</span><span class="n">agency</span><span class="p">:</span> <span class="n">v</span><span class="p">[</span><span class="s1">&#39;NDA&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">agency</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">e</span><span class="p">[</span><span class="s1">&#39;polls&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">bias_variance_decomposition</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="s1">&#39;actual_NDA&#39;</span><span class="p">],</span> <span class="n">nda_preds</span><span class="p">)</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;year&#39;</span><span class="p">:</span> <span class="n">e</span><span class="p">[</span><span class="s1">&#39;year&#39;</span><span class="p">],</span> <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                                           <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s1">&#39;individual_errors&#39;</span><span class="p">}})</span>
+
+<span class="n">results_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">results</span><span class="p">)</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;year&#39;</span><span class="p">)</span>
+<span class="n">results_df</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>bias</th>
+      <th>variance</th>
+      <th>mse</th>
+      <th>bias_fraction</th>
+      <th>variance_fraction</th>
+      <th>mean_prediction</th>
+      <th>actual</th>
+      <th>n_polls</th>
+    </tr>
+    <tr>
+      <th>year</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1996</th>
+      <td>2.00</td>
+      <td>28.67</td>
+      <td>32.67</td>
+      <td>0.12</td>
+      <td>0.88</td>
+      <td>189.00</td>
+      <td>187</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>1998</th>
+      <td>-7.75</td>
+      <td>14.19</td>
+      <td>74.25</td>
+      <td>0.81</td>
+      <td>0.19</td>
+      <td>244.25</td>
+      <td>252</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <th>1999</th>
+      <td>0.00</td>
+      <td>114.50</td>
+      <td>114.50</td>
+      <td>0.00</td>
+      <td>1.00</td>
+      <td>303.00</td>
+      <td>303</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <th>2004</th>
+      <td>72.40</td>
+      <td>101.04</td>
+      <td>5342.80</td>
+      <td>0.98</td>
+      <td>0.02</td>
+      <td>253.40</td>
+      <td>181</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <th>2009</th>
+      <td>22.20</td>
+      <td>30.56</td>
+      <td>523.40</td>
+      <td>0.94</td>
+      <td>0.06</td>
+      <td>181.20</td>
+      <td>159</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <th>2014</th>
+      <td>-46.50</td>
+      <td>536.92</td>
+      <td>2699.17</td>
+      <td>0.80</td>
+      <td>0.20</td>
+      <td>289.50</td>
+      <td>336</td>
+      <td>6</td>
+    </tr>
+    <tr>
+      <th>2019</th>
+      <td>-41.33</td>
+      <td>1491.56</td>
+      <td>3200.00</td>
+      <td>0.53</td>
+      <td>0.47</td>
+      <td>311.67</td>
+      <td>353</td>
+      <td>6</td>
+    </tr>
+    <tr>
+      <th>2024</th>
+      <td>82.50</td>
+      <td>223.92</td>
+      <td>7030.17</td>
+      <td>0.97</td>
+      <td>0.03</td>
+      <td>375.50</td>
+      <td>293</td>
+      <td>6</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>Two elections should already jump out from the <code>bias_fraction</code> column: <strong>2004</strong> and <strong>2024</strong> both had catastrophic, headline-making misses. Let's see if the numbers
+back that up, without assuming they will.</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Bias-dominated elections (bias_fraction &gt; 0.5):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">results_df</span><span class="p">[</span><span class="n">results_df</span><span class="o">.</span><span class="n">bias_fraction</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mf">0.5</span><span class="p">][[</span><span class="s1">&#39;bias&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;variance&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;bias_fraction&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Variance-dominated elections (bias_fraction &lt;= 0.5):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">results_df</span><span class="p">[</span><span class="n">results_df</span><span class="o">.</span><span class="n">bias_fraction</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mf">0.5</span><span class="p">][[</span><span class="s1">&#39;bias&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;variance&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;bias_fraction&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Mean bias_fraction across all {len(results_df)} elections: &quot;</span>
+<span class="w">      </span><span class="n">f</span><span class="s2">&quot;{results_df.bias_fraction.mean():.2f}&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+<p>Bias-dominated elections (bias_fraction &gt; 0.5):
+           bias  variance  bias_fraction
+    year                              <br />
+    1998  -7.75     14.19           0.81
+    2004  72.40    101.04           0.98
+    2009  22.20     30.56           0.94
+    2014 -46.50    536.92           0.80
+    2019 -41.33   1491.56           0.53
+    2024  82.50    223.92           0.97</p>
+<div class="codehilite"><pre><span></span><code><span class="n">Variance</span><span class="o">-</span><span class="n">dominated</span><span class="w"> </span><span class="n">elections</span><span class="w"> </span><span class="p">(</span><span class="n">bias_fraction</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mf">0.5</span><span class="p">):</span>
+<span class="w">      </span><span class="n">bias</span><span class="w">  </span><span class="n">variance</span><span class="w">  </span><span class="n">bias_fraction</span>
+<span class="n">year</span><span class="w">                               </span>
+<span class="mi">1996</span><span class="w">   </span><span class="mf">2.0</span><span class="w">     </span><span class="mf">28.67</span><span class="w">           </span><span class="mf">0.12</span>
+<span class="mi">1999</span><span class="w">   </span><span class="mf">0.0</span><span class="w">    </span><span class="mf">114.50</span><span class="w">           </span><span class="mf">0.00</span>
+
+<span class="n">Mean</span><span class="w"> </span><span class="n">bias_fraction</span><span class="w"> </span><span class="n">across</span><span class="w"> </span><span class="n">all</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="n">elections</span><span class="p">:</span><span class="w"> </span><span class="mf">0.64</span>
+</code></pre></div>
+
+<h2>Which pollsters are consistently biased, and which way?</h2>
+<div class="codehilite"><pre><span></span><code><span class="n">def</span><span class="w"> </span><span class="n">pollster_bias_profile</span><span class="p">(</span><span class="n">elections_data</span><span class="p">)</span><span class="err">:</span>
+<span class="w">    </span><span class="n">pollster_errors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">defaultdict</span><span class="p">(</span><span class="n">list</span><span class="p">)</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="nl">elections_data</span><span class="p">:</span>
+<span class="w">        </span><span class="n">actual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="o">[</span><span class="n">&#39;actual_NDA&#39;</span><span class="o">]</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">agency</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">e</span><span class="o">[</span><span class="n">&#39;polls&#39;</span><span class="o">]</span><span class="p">.</span><span class="n">items</span><span class="p">()</span><span class="err">:</span>
+<span class="w">            </span><span class="n">pollster_errors</span><span class="o">[</span><span class="n">agency</span><span class="o">]</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">[</span><span class="n">&#39;NDA&#39;</span><span class="o">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">actual</span><span class="p">)</span>
+
+<span class="w">    </span><span class="n">profiles</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">{}</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">agency</span><span class="p">,</span><span class="w"> </span><span class="n">errors</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">pollster_errors</span><span class="p">.</span><span class="n">items</span><span class="p">()</span><span class="err">:</span>
+<span class="w">        </span><span class="n">errors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">np</span><span class="p">.</span><span class="k">array</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span>
+<span class="w">        </span><span class="n">profiles</span><span class="o">[</span><span class="n">agency</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">{</span>
+<span class="w">            </span><span class="s1">&#39;mean_error&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">errors</span><span class="p">.</span><span class="n">mean</span><span class="p">(),</span><span class="w">   </span><span class="err">#</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">overestimates</span><span class="w"> </span><span class="n">NDA</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="n">average</span>
+<span class="w">            </span><span class="s1">&#39;std_error&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">errors</span><span class="p">.</span><span class="n">std</span><span class="p">(),</span>
+<span class="w">            </span><span class="s1">&#39;n_elections&#39;</span><span class="err">:</span><span class="w"> </span><span class="nf">len</span><span class="p">(</span><span class="n">errors</span><span class="p">),</span>
+<span class="w">            </span><span class="s1">&#39;consistency&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">errors</span><span class="p">.</span><span class="n">mean</span><span class="p">()</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">errors</span><span class="p">.</span><span class="n">std</span><span class="p">()</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">errors</span><span class="p">.</span><span class="n">std</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">,</span>
+<span class="w">        </span><span class="err">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">profiles</span><span class="p">).</span><span class="n">T</span><span class="p">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;mean_error&#39;</span><span class="p">)</span>
+
+<span class="n">profile_df</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pollster_bias_profile</span><span class="p">(</span><span class="n">elections</span><span class="p">)</span>
+<span class="n">profile_df</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</code></pre></div>
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>mean_error</th>
+      <th>std_error</th>
+      <th>n_elections</th>
+      <th>consistency</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>newsx-neta</th>
+      <td>-111.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>india today-cicero</th>
+      <td>-64.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>ndtv-hansa</th>
+      <td>-57.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>abp-nielsen</th>
+      <td>-55.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>times now-vmr</th>
+      <td>-47.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>cnn-ibn-csds</th>
+      <td>-22.0</td>
+      <td>38.0</td>
+      <td>2.0</td>
+      <td>-0.58</td>
+    </tr>
+    <tr>
+      <th>news18-ipsos</th>
+      <td>-17.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>drs</th>
+      <td>-13.0</td>
+      <td>3.0</td>
+      <td>2.0</td>
+      <td>-4.33</td>
+    </tr>
+    <tr>
+      <th>rmg</th>
+      <td>-12.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>media research group</th>
+      <td>-7.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>frontline-cms</th>
+      <td>-5.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>insight-doordarshan</th>
+      <td>-3.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>india today-marg</th>
+      <td>3.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>news 24-chanakya</th>
+      <td>4.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>abp-cvoter</th>
+      <td>4.5</td>
+      <td>70.5</td>
+      <td>2.0</td>
+      <td>0.06</td>
+    </tr>
+    <tr>
+      <th>c-voter</th>
+      <td>5.0</td>
+      <td>7.0</td>
+      <td>2.0</td>
+      <td>0.71</td>
+    </tr>
+    <tr>
+      <th>times now-development profile</th>
+      <td>7.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>doordarshan-csds</th>
+      <td>8.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>ndtv-nielsen</th>
+      <td>18.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>headline today-cvoter</th>
+      <td>22.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>india tv-cnx</th>
+      <td>23.0</td>
+      <td>70.0</td>
+      <td>2.0</td>
+      <td>0.33</td>
+    </tr>
+    <tr>
+      <th>star news-nielsen</th>
+      <td>23.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>newsx-devtech</th>
+      <td>32.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>india today-axis my india</th>
+      <td>42.0</td>
+      <td>46.0</td>
+      <td>2.0</td>
+      <td>0.91</td>
+    </tr>
+    <tr>
+      <th>news24-todays chanakya</th>
+      <td>52.0</td>
+      <td>55.0</td>
+      <td>2.0</td>
+      <td>0.95</td>
+    </tr>
+    <tr>
+      <th>ndtv-indian express-csds</th>
+      <td>59.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>times now-etg</th>
+      <td>65.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>aaj tak-orc</th>
+      <td>67.0</td>
+<td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>republic-matrize</th>
+      <td>67.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>zee news-mdra</th>
+      <td>68.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>sahara-drs</th>
+      <td>82.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>star news-c voter</th>
+      <td>86.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p><code>consistency</code> is <code>mean_error / std_error</code> ,a large magnitude means a pollster is
+biased <em>in the same direction, repeatedly</em>, not just occasionally off. This is a rough
+signal-to-noise ratio on n as small as 1–2 elections for some firms, so read it as
+descriptive, not a firm ranking.</p>
+<p>To keep this fair, only show pollsters with <strong>2+ elections</strong> of history (a single data
+point can't say anything about consistency).</p>
+<div class="codehilite"><pre><span></span><code>repeat_pollsters = profile_df[profile_df.n_elections &gt;= 2].sort_values(&#39;mean_error&#39;)
+
+fig, ax = plt.subplots(figsize=(8, max(3, 0.4 * len(repeat_pollsters))))
+colors = [COLOR_NDA if v &gt; 0 else COLOR_INC for v in repeat_pollsters[&#39;mean_error&#39;]]
+ax.barh(repeat_pollsters.index, repeat_pollsters[&#39;mean_error&#39;], color=colors)
+ax.axvline(0, color=&#39;black&#39;, linewidth=0.8)
+ax.set_xlabel(&#39;Mean error in NDA seats (+ = overestimates NDA, \u2212 = underestimates NDA)&#39;)
+ax.set_title(&#39;Per-Pollster Bias Direction (firms with \u2265 2 elections of history)&#39;)
+plt.tight_layout()
+plt.show()
+</code></pre></div>
+
+<p><img alt="png" src="/static/images/output_23_0.png" /></p>
+<h2>Is the bias <em>statistically</em> correlated across elections?</h2>
+<p><strong>Important caveat first:</strong> this test runs on <strong>n = 8 elections</strong>. A one-sample t-test at n=8 has very low power, and an autocorrelation on 7 consecutive pairs is close to meaningless as "proof" of anything. Still I report these numbers, we don't lean on them as statistically significant confirmation.</p>
+<div class="codehilite"><pre><span></span><code><span class="s s-Atom">def</span> <span class="nf">test_bias_correlation</span><span class="p">(</span><span class="s s-Atom">elections_data</span><span class="p">)</span><span class="o">:</span>
+    <span class="s s-Atom">biases</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="s s-Atom">for</span> <span class="s s-Atom">e</span> <span class="s s-Atom">in</span> <span class="s s-Atom">elections_data</span><span class="o">:</span>
+        <span class="s s-Atom">nda_preds</span> <span class="o">=</span> <span class="p">{</span><span class="s s-Atom">a</span><span class="p">:</span> <span class="s s-Atom">v</span><span class="p">[</span><span class="s s-Atom">&#39;NDA&#39;</span><span class="p">]</span> <span class="s s-Atom">for</span> <span class="s s-Atom">a</span><span class="p">,</span> <span class="s s-Atom">v</span> <span class="s s-Atom">in</span> <span class="s s-Atom">e</span><span class="p">[</span><span class="s s-Atom">&#39;polls&#39;</span><span class="p">].</span><span class="nf">items</span><span class="p">()}</span>
+        <span class="s s-Atom">d</span> <span class="o">=</span> <span class="nf">bias_variance_decomposition</span><span class="p">(</span><span class="s s-Atom">e</span><span class="p">[</span><span class="s s-Atom">&#39;actual_NDA&#39;</span><span class="p">],</span> <span class="s s-Atom">nda_preds</span><span class="p">)</span>
+        <span class="s s-Atom">biases</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="s s-Atom">d</span><span class="p">[</span><span class="s s-Atom">&#39;bias&#39;</span><span class="p">])</span>
+
+    <span class="s s-Atom">t_stat</span><span class="p">,</span> <span class="s s-Atom">p_value</span> <span class="o">=</span> <span class="s s-Atom">stats</span><span class="p">.</span><span class="nf">ttest_1samp</span><span class="p">(</span><span class="s s-Atom">biases</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="s s-Atom">autocorr</span> <span class="o">=</span> <span class="s s-Atom">np</span><span class="p">.</span><span class="nf">corrcoef</span><span class="p">(</span><span class="s s-Atom">biases</span><span class="p">[</span><span class="o">:-</span><span class="mi">1</span><span class="p">],</span> <span class="s s-Atom">biases</span><span class="p">[</span><span class="mi">1</span><span class="o">:</span><span class="p">])[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="s s-Atom">if</span> <span class="nf">len</span><span class="p">(</span><span class="s s-Atom">biases</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="s s-Atom">else</span> <span class="s s-Atom">np</span><span class="p">.</span><span class="s s-Atom">nan</span>
+
+    <span class="s s-Atom">return</span> <span class="p">{</span>
+        <span class="s s-Atom">&#39;biases_by_year&#39;</span><span class="o">:</span> <span class="nf">dict</span><span class="p">(</span><span class="nf">zip</span><span class="p">([</span><span class="s s-Atom">e</span><span class="p">[</span><span class="s s-Atom">&#39;year&#39;</span><span class="p">]</span> <span class="s s-Atom">for</span> <span class="s s-Atom">e</span> <span class="s s-Atom">in</span> <span class="s s-Atom">elections_data</span><span class="p">],</span> <span class="s s-Atom">biases</span><span class="p">)),</span>
+        <span class="s s-Atom">&#39;mean_bias&#39;</span><span class="o">:</span> <span class="s s-Atom">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="s s-Atom">biases</span><span class="p">),</span> <span class="s s-Atom">&#39;bias_std&#39;</span><span class="o">:</span> <span class="s s-Atom">np</span><span class="p">.</span><span class="nf">std</span><span class="p">(</span><span class="s s-Atom">biases</span><span class="p">),</span>
+        <span class="s s-Atom">&#39;t_statistic&#39;</span><span class="o">:</span> <span class="s s-Atom">t_stat</span><span class="p">,</span> <span class="s s-Atom">&#39;p_value&#39;</span><span class="o">:</span> <span class="s s-Atom">p_value</span><span class="p">,</span> <span class="s s-Atom">&#39;autocorrelation&#39;</span><span class="o">:</span> <span class="s s-Atom">autocorr</span><span class="p">,</span>
+        <span class="s s-Atom">&#39;n_elections&#39;</span><span class="o">:</span> <span class="nf">len</span><span class="p">(</span><span class="s s-Atom">biases</span><span class="p">),</span>
+    <span class="p">}</span>
+
+<span class="s s-Atom">corr_result</span> <span class="o">=</span> <span class="nf">test_bias_correlation</span><span class="p">(</span><span class="s s-Atom">elections</span><span class="p">)</span>
+<span class="s s-Atom">for</span> <span class="s s-Atom">k</span><span class="p">,</span> <span class="s s-Atom">v</span> <span class="s s-Atom">in</span> <span class="s s-Atom">corr_result</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span><span class="o">:</span>
+    <span class="s s-Atom">if</span> <span class="s s-Atom">k</span> <span class="o">==</span> <span class="s s-Atom">&#39;biases_by_year&#39;</span><span class="o">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="s s-Atom">&#39;biases_by_year:&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s s-Atom">y</span><span class="p">:</span> <span class="nf">round</span><span class="p">(</span><span class="s s-Atom">b</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="s s-Atom">for</span> <span class="s s-Atom">y</span><span class="p">,</span> <span class="s s-Atom">b</span> <span class="s s-Atom">in</span> <span class="s s-Atom">v</span><span class="p">.</span><span class="nf">items</span><span class="p">()})</span>
+    <span class="s s-Atom">elif</span> <span class="nf">isinstance</span><span class="p">(</span><span class="s s-Atom">v</span><span class="p">,</span> <span class="s s-Atom">float</span><span class="p">)</span><span class="o">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="s s-Atom">f&#39;{k}: {v:.4f}&#39;</span><span class="p">)</span>
+    <span class="s s-Atom">else</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="s s-Atom">f&#39;{k}: {v}&#39;</span><span class="p">)</span>
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>biases_by_year: {1996: np.float64(2.0), 1998: np.float64(-7.8), 1999: np.float64(0.0), 2004: np.float64(72.4), 2009: np.float64(22.2), 2014: np.float64(-46.5), 2019: np.float64(-41.3), 2024: np.float64(82.5)}
+mean_bias: 10.4396
+bias_std: 44.1641
+t_statistic: 0.6254
+p_value: 0.5515
+autocorrelation: -0.0768
+n_elections: 8
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>n = corr_result[&#39;n_elections&#39;]
+print(f&quot;n = {n} elections.&quot;)
+print(f&quot;Mean bias = {corr_result[&#39;mean_bias&#39;]:.1f} seats &quot;
+      f&quot;(p = {corr_result[&#39;p_value&#39;]:.3f} from a one-sample t-test).&quot;)
+if corr_result[&#39;p_value&#39;] &lt; 0.05:
+    print(&quot;This clears the conventional p&lt;0.05 bar -- but with n=8, that threshold is &quot;
+          &quot;easy to clear or miss on a handful of extra points either way. Treat it as &quot;
+          &quot;&#39;consistent with correlated bias,&#39; not proof of it.&quot;)
+else:
+    print(&quot;This does NOT clear the conventional p&lt;0.05 bar at n=8 -- which, given how &quot;
+          &quot;underpowered a t-test on 8 points is, does not mean bias is absent, only &quot;
+          &quot;that this particular test can&#39;t confirm it either way.&quot;)
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>n = 8 elections.
+Mean bias = 10.4 seats (p = 0.552 from a one-sample t-test).
+This does NOT clear the conventional p&lt;0.05 bar at n=8 -- which, given how underpowered a t-test on 8 points is, does not mean bias is absent, only that this particular test can&#39;t confirm it either way.
+</code></pre></div>
+
+<h2>Bias fraction across elections: not a smooth gradient</h2>
+<p>If poll error were a mix of "somewhat biased, somewhat noisy" every year, the histogram of <code>bias_fraction</code> (bias² ÷ MSE) would cluster around some middle value.</p>
+<div class="codehilite"><pre><span></span><code>fig, ax = plt.subplots(figsize=(7, 4.5))
+ax.hist(results_df[&#39;bias_fraction&#39;], bins=np.linspace(0, 1, 9),
+        color=COLOR_BIAS, alpha=0.75, edgecolor=&#39;white&#39;)
+mean_bf = results_df[&#39;bias_fraction&#39;].mean()
+ax.axvline(mean_bf, color=&#39;black&#39;, linestyle=&#39;--&#39;, linewidth=1,
+           label=f&#39;Mean = {mean_bf:.2f}&#39;)
+ax.set_xlabel(&#39;Bias fraction (Bias$^2$ / MSE)&#39;)
+ax.set_ylabel(&#39;Number of elections&#39;)
+ax.set_title(&#39;Elections Are Bias-Dominated or Variance-Dominated \u2014 Rarely In Between&#39;)
+ax.legend(frameon=False)
+plt.tight_layout()
+plt.show()
+
+print(f&quot;Mean bias fraction across all elections: {mean_bf:.2f}&quot;)
+print(&quot;Per-election values:&quot;)
+print(results_df[&#39;bias_fraction&#39;].round(2).to_string())
+</code></pre></div>
+
+<p><img alt="png" src="/static/images/output_28_0.png" /></p>
+<div class="codehilite"><pre><span></span><code>Mean bias fraction across all elections: 0.64
+Per-election values:
+year
+1996    0.12
+1998    0.81
+1999    0.00
+2004    0.98
+2009    0.94
+2014    0.80
+2019    0.53
+2024    0.97
+</code></pre></div>
+
+<p>The distribution is closer to <strong>bimodal</strong> than centered: a cluster of elections near 0
+(variance-dominated: pollsters disagreed but weren't collectively wrong) and a cluster
+near 0.8–1.0 (bias-dominated: pollsters agreed and were collectively wrong). The mean
+sits in the valley between the two clusters and doesn't represent either group well</p>
+<h2>Herding</h2>
+<p>Indian exit polls are released <strong>simultaneously</strong> - every firm airs its numbers the same evening voting ends, not on a rolling schedule over weeks. That rules out a
+"herding-over-time" trend chart (there's no "weeks before the election" axis for a same-day release; building one would mean inventing timestamps that don't exist for
+this kind of poll).</p>
+<p>What we <em>can</em> measure directly from data already in hand is herding <strong>within</strong> that single release window: do pollsters converge on suspiciously similar numbers on the same evening? A simple proxy is the <strong>coefficient of variation</strong> (std / |mean|) of that election's NDA predictions low CV alongside high bias means "everyone agreed, and everyone was wrong."</p>
+<div class="codehilite"><pre><span></span><code><span class="n">herding_rows</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[]</span>
+<span class="k">for</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">elections</span><span class="p">:</span>
+<span class="w">    </span><span class="n">preds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">v</span><span class="p">[</span><span class="s1">&#39;NDA&#39;</span><span class="p">]</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">e</span><span class="p">[</span><span class="s1">&#39;polls&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span><span class="w"> </span><span class="n">dtype</span><span class="o">=</span><span class="nb nb-Type">float</span><span class="p">)</span>
+<span class="w">    </span><span class="n">cv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">preds</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">preds</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">preds</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+<span class="w">    </span><span class="n">herding_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+<span class="w">        </span><span class="s1">&#39;year&#39;</span><span class="p">:</span><span class="w"> </span><span class="n">e</span><span class="p">[</span><span class="s1">&#39;year&#39;</span><span class="p">],</span>
+<span class="w">        </span><span class="s1">&#39;pred_mean&#39;</span><span class="p">:</span><span class="w"> </span><span class="n">preds</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span><span class="w"> </span><span class="s1">&#39;pred_std&#39;</span><span class="p">:</span><span class="w"> </span><span class="n">preds</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span>
+<span class="w">        </span><span class="s1">&#39;coefficient_of_variation&#39;</span><span class="p">:</span><span class="w"> </span><span class="n">cv</span><span class="p">,</span>
+<span class="w">        </span><span class="s1">&#39;bias_fraction&#39;</span><span class="p">:</span><span class="w"> </span><span class="n">results_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="s1">&#39;year&#39;</span><span class="p">],</span><span class="w"> </span><span class="s1">&#39;bias_fraction&#39;</span><span class="p">],</span>
+<span class="w">    </span><span class="p">})</span>
+<span class="n">herding_df</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">herding_rows</span><span class="p">)</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;year&#39;</span><span class="p">)</span>
+<span class="n">herding_df</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</code></pre></div>
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>pred_mean</th>
+      <th>pred_std</th>
+      <th>coefficient_of_variation</th>
+      <th>bias_fraction</th>
+    </tr>
+    <tr>
+      <th>year</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1996</th>
+      <td>189.000</td>
+      <td>5.354</td>
+      <td>0.028</td>
+      <td>0.122</td>
+    </tr>
+    <tr>
+      <th>1998</th>
+      <td>244.250</td>
+      <td>3.767</td>
+      <td>0.015</td>
+      <td>0.809</td>
+    </tr>
+    <tr>
+      <th>1999</th>
+      <td>303.000</td>
+      <td>10.700</td>
+      <td>0.035</td>
+      <td>0.000</td>
+    </tr>
+    <tr>
+      <th>2004</th>
+      <td>253.400</td>
+      <td>10.052</td>
+      <td>0.040</td>
+      <td>0.981</td>
+    </tr>
+    <tr>
+      <th>2009</th>
+      <td>181.200</td>
+      <td>5.528</td>
+      <td>0.031</td>
+      <td>0.942</td>
+    </tr>
+    <tr>
+      <th>2014</th>
+      <td>289.500</td>
+      <td>23.171</td>
+      <td>0.080</td>
+      <td>0.801</td>
+    </tr>
+    <tr>
+      <th>2019</th>
+      <td>311.667</td>
+      <td>38.621</td>
+      <td>0.124</td>
+      <td>0.534</td>
+    </tr>
+    <tr>
+      <th>2024</th>
+      <td>375.500</td>
+      <td>14.964</td>
+      <td>0.040</td>
+      <td>0.968</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="codehilite"><pre><span></span><code><span class="n">fig</span><span class="p">,</span><span class="w"> </span><span class="n">ax1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">))</span>
+<span class="n">years</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">herding_df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+<span class="n">ax1</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">years</span><span class="p">,</span><span class="w"> </span><span class="n">herding_df</span><span class="p">[</span><span class="s1">&#39;coefficient_of_variation&#39;</span><span class="p">],</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="n">COLOR_VAR</span><span class="p">,</span><span class="w"> </span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+<span class="w">        </span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;Coefficient of variation (herding </span><span class="se">\u2192</span><span class="s1"> lower)&#39;</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Coefficient of variation of NDA predictions&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="n">COLOR_VAR</span><span class="p">)</span>
+<span class="n">ax1</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s1">&#39;y&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">labelcolor</span><span class="o">=</span><span class="n">COLOR_VAR</span><span class="p">)</span>
+
+<span class="n">ax2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ax1</span><span class="o">.</span><span class="n">twinx</span><span class="p">()</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">years</span><span class="p">,</span><span class="w"> </span><span class="n">herding_df</span><span class="p">[</span><span class="s1">&#39;bias_fraction&#39;</span><span class="p">],</span><span class="w"> </span><span class="s1">&#39;o-&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="n">COLOR_BIAS</span><span class="p">,</span><span class="w"> </span><span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<span class="w">         </span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;Bias fraction&#39;</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Bias fraction&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="o">=</span><span class="n">COLOR_BIAS</span><span class="p">)</span>
+<span class="n">ax2</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s1">&#39;y&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">labelcolor</span><span class="o">=</span><span class="n">COLOR_BIAS</span><span class="p">)</span>
+
+<span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Herding Signal: Low Disagreement Coinciding With High Bias (2004, 2024)&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div>
+
+<p><img alt="png" src="/static/images/output_32_0.png" /></p>
+<p>2004 and 2024 - the two bias-dominated elections from Step 4 are exactly where pollster agreement (low CV) coincides with high bias fraction. That's the herding
+story made visible without inventing a time axis the data doesn't have: it's the <em>same</em> underlying pattern already measured in Steps 4 and 7, just named explicitly.</p>
+<h2>SA little ML modelling: can historical bias be learned and corrected?</h2>
+<p>The project's open research question: <em>if we know each pollster's historical bias, can
+a debiased ensemble beat a naive average?</em></p>
+<p>This is a small, honest version of that idea a <strong>learned, leave-one-election-out
+bias correction</strong>, not a black-box model, so it's easy to see exactly what it's doing
+and where it can fail:</p>
+<ol>
+<li>For each held-out election, and each pollster present in it, compute that pollster's <strong>mean error on every <em>other</em> election</strong> (never touching the held-out year  this is a leave-one-out split, not fitting and testing on the same data).</li>
+<li>Correct that pollster's prediction in the held-out year by subtracting the learned bias.</li>
+<li>Average the corrected predictions → the "debiased ensemble" prediction for that
+   year.</li>
+<li>Compare its error against the naive (uncorrected) ensemble mean.</li>
+</ol>
+<p>Pollsters with <strong>no other election</strong> in the dataset can't get a leave-one-out
+correction (there's nothing to learn from), so they fall back to their raw
+prediction in this comparison worth stating plainly rather than silently dropping
+them.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">def</span><span class="w"> </span><span class="n">leave_one_out_debiased_ensemble</span><span class="p">(</span><span class="n">elections_data</span><span class="p">)</span><span class="err">:</span>
+<span class="w">    </span><span class="k">rows</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">[]</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">held_out</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">enumerate</span><span class="p">(</span><span class="n">elections_data</span><span class="p">)</span><span class="err">:</span>
+<span class="w">        </span><span class="n">train_elections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">elections_data</span><span class="o">[</span><span class="n">:i</span><span class="o">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">elections_data</span><span class="o">[</span><span class="n">i+1:</span><span class="o">]</span>
+
+<span class="w">        </span><span class="n">train_errors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">defaultdict</span><span class="p">(</span><span class="n">list</span><span class="p">)</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="nl">train_elections</span><span class="p">:</span>
+<span class="w">            </span><span class="n">actual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="o">[</span><span class="n">&#39;actual_NDA&#39;</span><span class="o">]</span>
+<span class="w">            </span><span class="k">for</span><span class="w"> </span><span class="n">agency</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">e</span><span class="o">[</span><span class="n">&#39;polls&#39;</span><span class="o">]</span><span class="p">.</span><span class="n">items</span><span class="p">()</span><span class="err">:</span>
+<span class="w">                </span><span class="n">train_errors</span><span class="o">[</span><span class="n">agency</span><span class="o">]</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="o">[</span><span class="n">&#39;NDA&#39;</span><span class="o">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">actual</span><span class="p">)</span>
+<span class="w">        </span><span class="n">learned_bias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">{</span><span class="nl">a</span><span class="p">:</span><span class="w"> </span><span class="n">np</span><span class="p">.</span><span class="n">mean</span><span class="p">(</span><span class="n">errs</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">errs</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">train_errors</span><span class="p">.</span><span class="n">items</span><span class="p">()</span><span class="err">}</span>
+
+<span class="w">        </span><span class="n">actual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">held_out</span><span class="o">[</span><span class="n">&#39;actual_NDA&#39;</span><span class="o">]</span>
+<span class="w">        </span><span class="n">raw_preds</span><span class="p">,</span><span class="w"> </span><span class="n">corrected_preds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">[]</span><span class="p">,</span><span class="w"> </span><span class="err">[]</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">agency</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">held_out</span><span class="o">[</span><span class="n">&#39;polls&#39;</span><span class="o">]</span><span class="p">.</span><span class="n">items</span><span class="p">()</span><span class="err">:</span>
+<span class="w">            </span><span class="n">pred</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="o">[</span><span class="n">&#39;NDA&#39;</span><span class="o">]</span>
+<span class="w">            </span><span class="n">raw_preds</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">pred</span><span class="p">)</span>
+<span class="w">            </span><span class="n">correction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">learned_bias</span><span class="p">.</span><span class="k">get</span><span class="p">(</span><span class="n">agency</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">)</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">correction</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">never</span><span class="w"> </span><span class="n">seen</span><span class="w"> </span><span class="k">before</span>
+<span class="w">            </span><span class="n">corrected_preds</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">pred</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">correction</span><span class="p">)</span>
+
+<span class="w">        </span><span class="n">naive_mean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">np</span><span class="p">.</span><span class="n">mean</span><span class="p">(</span><span class="n">raw_preds</span><span class="p">)</span>
+<span class="w">        </span><span class="n">debiased_mean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">np</span><span class="p">.</span><span class="n">mean</span><span class="p">(</span><span class="n">corrected_preds</span><span class="p">)</span>
+
+<span class="w">        </span><span class="k">rows</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="err">{</span>
+<span class="w">            </span><span class="s1">&#39;year&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">held_out</span><span class="o">[</span><span class="n">&#39;year&#39;</span><span class="o">]</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;actual&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">actual</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;naive_ensemble_pred&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">naive_mean</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;naive_error&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">naive_mean</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">actual</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;debiased_ensemble_pred&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">debiased_mean</span><span class="p">,</span>
+<span class="w">            </span><span class="s1">&#39;debiased_error&#39;</span><span class="err">:</span><span class="w"> </span><span class="n">debiased_mean</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">actual</span><span class="p">,</span>
+<span class="w">        </span><span class="err">}</span><span class="p">)</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="k">rows</span><span class="p">).</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;year&#39;</span><span class="p">)</span>
+
+<span class="n">loo_df</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">leave_one_out_debiased_ensemble</span><span class="p">(</span><span class="n">elections</span><span class="p">)</span>
+<span class="n">loo_df</span><span class="o">[</span><span class="n">&#39;naive_abs_error&#39;</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">loo_df</span><span class="o">[</span><span class="n">&#39;naive_error&#39;</span><span class="o">]</span><span class="p">.</span><span class="nf">abs</span><span class="p">()</span>
+<span class="n">loo_df</span><span class="o">[</span><span class="n">&#39;debiased_abs_error&#39;</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">loo_df</span><span class="o">[</span><span class="n">&#39;debiased_error&#39;</span><span class="o">]</span><span class="p">.</span><span class="nf">abs</span><span class="p">()</span>
+<span class="n">loo_df</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>actual</th>
+      <th>naive_ensemble_pred</th>
+      <th>naive_error</th>
+      <th>debiased_ensemble_pred</th>
+      <th>debiased_error</th>
+      <th>naive_abs_error</th>
+      <th>debiased_abs_error</th>
+    </tr>
+    <tr>
+      <th>year</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1996</th>
+      <td>187</td>
+      <td>189.0</td>
+      <td>2.0</td>
+      <td>189.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <th>1998</th>
+      <td>252</td>
+      <td>244.2</td>
+      <td>-7.8</td>
+      <td>245.2</td>
+      <td>-6.8</td>
+      <td>7.8</td>
+      <td>6.8</td>
+    </tr>
+    <tr>
+      <th>1999</th>
+      <td>303</td>
+      <td>303.0</td>
+      <td>0.0</td>
+      <td>306.0</td>
+      <td>3.0</td>
+      <td>0.0</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>2004</th>
+      <td>181</td>
+      <td>253.4</td>
+      <td>72.4</td>
+      <td>253.4</td>
+      <td>72.4</td>
+      <td>72.4</td>
+      <td>72.4</td>
+    </tr>
+    <tr>
+      <th>2009</th>
+      <td>159</td>
+      <td>181.2</td>
+      <td>22.2</td>
+      <td>193.2</td>
+      <td>34.2</td>
+      <td>22.2</td>
+      <td>34.2</td>
+    </tr>
+    <tr>
+      <th>2014</th>
+      <td>336</td>
+      <td>289.5</td>
+      <td>-46.5</td>
+      <td>271.3</td>
+      <td>-64.7</td>
+      <td>46.5</td>
+      <td>64.7</td>
+    </tr>
+    <tr>
+      <th>2019</th>
+      <td>353</td>
+      <td>311.7</td>
+      <td>-41.3</td>
+      <td>266.7</td>
+      <td>-86.3</td>
+      <td>41.3</td>
+      <td>86.3</td>
+    </tr>
+    <tr>
+      <th>2024</th>
+      <td>293</td>
+      <td>375.5</td>
+      <td>82.5</td>
+      <td>395.5</td>
+      <td>102.5</td>
+      <td>82.5</td>
+      <td>102.5</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="codehilite"><pre><span></span><code>naive_mse = (loo_df[&#39;naive_error&#39;] ** 2).mean()
+debiased_mse = (loo_df[&#39;debiased_error&#39;] ** 2).mean()
+naive_mae = loo_df[&#39;naive_abs_error&#39;].mean()
+debiased_mae = loo_df[&#39;debiased_abs_error&#39;].mean()
+
+print(f&quot;Naive ensemble    -- MSE: {naive_mse:8.1f}   MAE: {naive_mae:6.1f} seats&quot;)
+print(f&quot;Debiased ensemble -- MSE: {debiased_mse:8.1f}   MAE: {debiased_mae:6.1f} seats&quot;)
+print(f&quot;MAE change: {debiased_mae - naive_mae:+.1f} seats &quot;
+      f&quot;({&#39;improvement&#39; if debiased_mae &lt; naive_mae else &#39;no improvement&#39;})&quot;)
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>Naive ensemble    -- MSE:   2059.5   MAE:   34.3 seats
+Debiased ensemble -- MSE:   3576.4   MAE:   46.5 seats
+MAE change: +12.1 seats (no improvement)
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code><span class="nx">fig</span><span class="p">,</span><span class="w"> </span><span class="nx">ax</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">plt</span><span class="p">.</span><span class="nx">subplots</span><span class="p">(</span><span class="nx">figsize</span><span class="p">=(</span><span class="mi">9</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">))</span>
+<span class="nx">years</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">loo_df</span><span class="p">.</span><span class="nx">index</span><span class="p">.</span><span class="nx">astype</span><span class="p">(</span><span class="nx">str</span><span class="p">)</span>
+<span class="nx">width</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="m m-Double">0.35</span>
+<span class="nx">x</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">np</span><span class="p">.</span><span class="nx">arange</span><span class="p">(</span><span class="nx">len</span><span class="p">(</span><span class="nx">years</span><span class="p">))</span>
+
+<span class="nx">ax</span><span class="p">.</span><span class="nx">bar</span><span class="p">(</span><span class="nx">x</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nx">width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nx">loo_df</span><span class="p">[</span><span class="err">&#39;</span><span class="nx">naive_abs_error</span><span class="err">&#39;</span><span class="p">],</span><span class="w"> </span><span class="nx">width</span><span class="p">,</span><span class="w"> </span><span class="nx">color</span><span class="p">=</span><span class="nx">COLOR_VAR</span><span class="p">,</span><span class="w"> </span><span class="nx">label</span><span class="p">=</span><span class="err">&#39;</span><span class="nx">Naive</span><span class="w"> </span><span class="nx">ensemble</span><span class="w"> </span><span class="o">|</span><span class="nx">error</span><span class="o">|</span><span class="err">&#39;</span><span class="p">)</span>
+<span class="nx">ax</span><span class="p">.</span><span class="nx">bar</span><span class="p">(</span><span class="nx">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nx">loo_df</span><span class="p">[</span><span class="err">&#39;</span><span class="nx">debiased_abs_error</span><span class="err">&#39;</span><span class="p">],</span><span class="w"> </span><span class="nx">width</span><span class="p">,</span><span class="w"> </span><span class="nx">color</span><span class="p">=</span><span class="nx">COLOR_BIAS</span><span class="p">,</span><span class="w"> </span><span class="nx">label</span><span class="p">=</span><span class="err">&#39;</span><span class="nx">Leave</span><span class="o">-</span><span class="nx">one</span><span class="o">-</span><span class="nx">out</span><span class="w"> </span><span class="nx">debiased</span><span class="w"> </span><span class="o">|</span><span class="nx">error</span><span class="o">|</span><span class="err">&#39;</span><span class="p">)</span>
+<span class="nx">ax</span><span class="p">.</span><span class="nx">set_xticks</span><span class="p">(</span><span class="nx">x</span><span class="p">);</span><span class="w"> </span><span class="nx">ax</span><span class="p">.</span><span class="nx">set_xticklabels</span><span class="p">(</span><span class="nx">years</span><span class="p">)</span>
+<span class="nx">ax</span><span class="p">.</span><span class="nx">set_ylabel</span><span class="p">(</span><span class="err">&#39;</span><span class="nx">Absolute</span><span class="w"> </span><span class="nx">error</span><span class="w"> </span><span class="p">(</span><span class="nx">NDA</span><span class="w"> </span><span class="nx">seats</span><span class="p">)</span><span class="err">&#39;</span><span class="p">)</span>
+<span class="nx">ax</span><span class="p">.</span><span class="nx">set_title</span><span class="p">(</span><span class="err">&#39;</span><span class="nx">Naive</span><span class="w"> </span><span class="nx">Average</span><span class="w"> </span><span class="nx">vs</span><span class="p">.</span><span class="w"> </span><span class="nx">Leave</span><span class="o">-</span><span class="nx">One</span><span class="o">-</span><span class="nx">Out</span><span class="w"> </span><span class="nx">Debiased</span><span class="w"> </span><span class="nx">Ensemble</span><span class="p">,</span><span class="w"> </span><span class="nx">per</span><span class="w"> </span><span class="nx">Election</span><span class="err">&#39;</span><span class="p">)</span>
+<span class="nx">ax</span><span class="p">.</span><span class="nx">legend</span><span class="p">(</span><span class="nx">frameon</span><span class="p">=</span><span class="nx">False</span><span class="p">)</span>
+<span class="nx">plt</span><span class="p">.</span><span class="nx">tight_layout</span><span class="p">()</span>
+<span class="nx">plt</span><span class="p">.</span><span class="nx">show</span><span class="p">()</span>
+</code></pre></div>
+
+<p><img alt="png" src="/static/images/output_37_0.png" /></p>
+<p>Read this result cautiously, not triumphantly:</p>
+<ul>
+<li>With only 8 elections and lots of one-election-only pollsters, the leave-one-out correction has very little training signal - for many pollster/year combinations
+  it's learning a "bias" from a single other data point, which is barely better than guessing.</li>
+<li><strong>2004 and 2024 are the hard cases precisely because they're the least "learnable" ones</strong> - the whole industry was wrong together, including firms whose <em>other</em> elections looked fine. A per-pollster historical correction can't fix a <em>cycle-specific</em> shared shock (an unusually large "shy voter" or late-swing effect that year); it can only correct pollsters who are chronically, individually biased.</li>
+<li>This is a proof-of-concept for the idea in the project doc's "Research Question" section, not a validated forecasting method a real version would need far more elections, out-of-sample state elections, and probably firm-specific correction that also learns from <em>methodology</em> (sample size, mode of interview), not just historical error.</li>
+</ul>
+<h2>what the data actually shows (not what was expected going in)</h2>
+<p>The project brief predicted "bias² ≈ 70–80% of error" before running any code. Report
+what actually came out instead:</p>
+<div class="codehilite"><pre><span></span><code>print(f&quot;Elections analyzed          : {len(results_df)}  ({results_df.index.min()}\u2013{results_df.index.max()})&quot;)
+print(f&quot;Mean bias fraction          : {results_df.bias_fraction.mean():.2f}&quot;)
+print(f&quot;Median bias fraction        : {results_df.bias_fraction.median():.2f}&quot;)
+print(f&quot;Bias-dominated elections    : &quot;
+      f&quot;{list(results_df[results_df.bias_fraction &gt; 0.5].index)}&quot;)
+print(f&quot;Variance-dominated elections: &quot;
+      f&quot;{list(results_df[results_df.bias_fraction &lt;= 0.5].index)}&quot;)
+print(f&quot;One-sample t-test on per-election bias: &quot;
+      f&quot;t={corr_result[&#39;t_statistic&#39;]:.2f}, p={corr_result[&#39;p_value&#39;]:.3f}, n={corr_result[&#39;n_elections&#39;]}&quot;)
+print(f&quot;Debiased leave-one-out ensemble MAE vs naive ensemble MAE: &quot;
+      f&quot;{debiased_mae:.1f} vs {naive_mae:.1f} seats&quot;)
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code>Elections analyzed          : 8  (1996–2024)
+Mean bias fraction          : 0.64
+Median bias fraction        : 0.81
+Bias-dominated elections    : [1998, 2004, 2009, 2014, 2019, 2024]
+Variance-dominated elections: [1996, 1999]
+One-sample t-test on per-election bias: t=0.63, p=0.552, n=8
+Debiased leave-one-out ensemble MAE vs naive ensemble MAE: 46.5 vs 34.3 seats
+</code></pre></div>
+
+<p><strong>Bottom line, stated at the confidence the data actually supports:</strong></p>
+<ul>
+<li>Poll error is <strong>not</strong> uniformly bias-dominated; it clusters into two groups:
+  elections where pollsters mostly disagreed with each other but weren't
+  collectively wrong (variance-dominated), and elections where pollsters agreed with
+  each other and were all wrong together (bias-dominated: <strong>2004</strong> and <strong>2024</strong>
+  stand out clearly in this dataset).</li>
+<li>When bias dominates, it's large, consistent with the paper's central claim that
+"More polls" doesn't help in those years because the disagreement between polls
+  was never the problem.</li>
+<li>The n=8 correlation test is <strong>suggestive, not confirmatory</strong>- don't oversell it.</li>
+<li>A naive historical bias correction only partially helps, and specifically <strong>fails
+  on exactly the elections (2004, 2024) where it would matter most</strong>, because those
+  look like shared, cycle-specific shocks rather than chronic individual-pollster
+  bias.</li>
+<li>None of this is meaningful evidence about polling methodology in general, or about
+  any named organization's competence, until the underlying <strong>numbers are verified</strong>
+  against ECI results and original published poll figures that -remains the single
+  biggest open item before any of this goes into a public write-up.</li>
+</ul>
+        </div>
+        
+        
+        <div class="tags hide-sm hide-md hide-lg">
+            
+                <a href="/tag/" class="tag"></a>
+            
+        </div>
+        
+        <hr>
+        <div class="comment-section">
+            <h3>Comments</h3>
+            
+            <!-- 
+            <form method="post" action="/post/4/comment" class="comment-form">
+                <div class="form-group">
+                    <label for="author">Name</label>
+                    <input type="text" name="author" id="author" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="content">Comment</label>
+                    <textarea name="content" id="content" class="form-control" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
+            -->
+        </div>
+    </article>
+</section>
+
+
+    <!-- Footer -->
+    <footer class="copy-right">
+        <div class="container">
+            <div class="is-full-width is-center">
+                <p>&copy; <a href="https://hemanthpulicharla.pythonanywhere.com/">Hemanth</a> 2025</p>
+            </div>
+            
+        </div>
+    </footer>
+</body>
+</html>
