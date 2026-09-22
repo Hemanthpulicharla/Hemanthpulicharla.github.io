@@ -4,7 +4,7 @@ from app import app, Post, About
 
 # Configuration
 DEST_DIR = 'docs'
-BASE_URL = 'https://your-github-username.github.io/your-repo-name/'
+BASE_URL = 'https://github.com/Hemanthpulicharla/Hemanthpulicharla.github.io'
 
 def get_all_pages():
     """Manually collect all public URLs."""
